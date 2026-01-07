@@ -16,6 +16,7 @@
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "SceneObject.hpp"
 #include "WFObjLoader.hpp"
@@ -26,6 +27,7 @@ LCDFont* font = NULL;
 
 SceneObject *scene_object;
 Camera *camera;
+std::vector<float> depth_buffer;
 
 #ifdef _WINDLL
 __declspec(dllexport)
@@ -53,13 +55,12 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		scene_object = (SceneObject*)malloc(sizeof(SceneObject));
 
 		*scene_object = wf_obj_loader.create_scene_object_from_file(
-			"cube.obj", pd
+			"icosahedron.obj", pd
 		);
 
 		camera = new Camera();
-		camera->MoveBackward(3.0f);
-		camera->MoveLeft(3.0f);
-		camera->MoveUp(1.5f);
+		scene_object->set_position(glm::vec3(0.0f, 0.0f, 0.0f));
+		depth_buffer.resize(SCREEN_WIDTH * SCREEN_HEIGHT, -INFINITY);
 
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(update, pd);
@@ -80,13 +81,20 @@ int y = (240-TEXT_HEIGHT)/2;
 int dx = 1;
 int dy = 2;
 
+glm::quat rotation_quat;
+
 static int update(void* userdata)
 {
+	std::fill(depth_buffer.begin(), depth_buffer.end(), -INFINITY);
+
 	PlaydateAPI* pd = (PlaydateAPI*)userdata;
-	
+
+
+	scene_object->rotate(1.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+	scene_object->rotate(1.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 	pd->graphics->clear(kColorWhite);
 	
-	scene_object->draw(*camera, pd->display->getWidth(), pd->display->getHeight(), pd);
+	scene_object->draw(*camera, pd, depth_buffer);
         
 	pd->system->drawFPS(0,0);
 
