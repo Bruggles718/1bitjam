@@ -1,0 +1,2 @@
+/usr/bin/ar qc libplaydate_sdk.a CMakeFiles/playdate_sdk.dir/src/setup.c.o
+/usr/bin/ranlib libplaydate_sdk.a

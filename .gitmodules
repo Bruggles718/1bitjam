@@ -1,0 +1,3 @@
+[submodule "submodules/playdate-cpp"]
+	path = submodules/playdate-cpp
+	url = https://github.com/nstbayless/playdate-cpp/tree/main

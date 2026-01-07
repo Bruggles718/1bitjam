@@ -1,0 +1,2 @@
+/usr/bin/ar qc libpdcpp_core.a CMakeFiles/pdcpp_core.dir/src/pdnewlib.c.o CMakeFiles/pdcpp_core.dir/src/pdnewdelete.cpp.o
+/usr/bin/ranlib libpdcpp_core.a
