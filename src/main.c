@@ -15,6 +15,37 @@
 #include "Camera.h"
 #include "WFObjLoader.h"
 
+// make ARM linker shut up about things we aren't using (nosys lib issues):
+void _close(void)
+{
+}
+void _lseek(void)
+{
+
+}
+void _read(void)
+{
+}
+void _write(void)
+{
+}
+void _fstat(void)
+{
+}
+void _getpid(void)
+{
+}
+void _isatty(void)
+{
+}
+void _kill(void)
+{
+}
+void abort(void) {}
+void _exit(void) {}
+void _fini(void) {}
+// end ARM linker warning hack
+
 static int update(void* userdata);
 const char* fontpath = "/System/Fonts/Asheville-Sans-14-Bold.pft";
 LCDFont* font = NULL;
@@ -22,6 +53,7 @@ LCDFont* font = NULL;
 SceneObject *scene_object;
 Camera *camera;
 Vector* depth_buffer;
+BayerMatrix *bayer_matrix;
 
 void initialize_depth_buffer() {
 	int size = SCREEN_WIDTH * SCREEN_HEIGHT;
@@ -58,6 +90,10 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		depth_buffer = (Vector*)malloc(sizeof(Vector));
 		vector_setup(depth_buffer, SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(float));
 		initialize_depth_buffer();
+
+		bayer_matrix = (BayerMatrix*)malloc(sizeof(BayerMatrix));
+		*bayer_matrix = bayer_matrix_create(512);
+
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(update, pd);
 	}
@@ -97,11 +133,10 @@ static int update(void* userdata)
 	vec3 x_axis = {1.0f, 0.0f, 0.0f};
 	scene_object_rotate(scene_object, 1.0f, y_axis);
 	scene_object_rotate(scene_object, 1.0f, x_axis);
-	scene_object_draw(scene_object, camera, pd, depth_buffer);
+	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
 
         
 	pd->system->drawFPS(0,0);
 
 	return 1;
 }
-

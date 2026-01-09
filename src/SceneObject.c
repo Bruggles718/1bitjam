@@ -2,8 +2,6 @@
 // #include <cglm/gtc/matrix_transform.h>
 #include <cglm/mat4.h>
 // #include <cglm/gtc/type_ptr.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
 #include <assert.h>
 
@@ -41,12 +39,7 @@ static inline int abs_int(int x) {
 
 /* ===== Bayer Matrix Functions ===== */
 
-typedef struct BayerMatrix {
-    float** data;
-    int size;
-} BayerMatrix;
-
-static BayerMatrix bayer_matrix_create(int n) {
+BayerMatrix bayer_matrix_create(int n) {
     assert((n & (n - 1)) == 0 && "Size must be a power of 2");
     
     BayerMatrix result;
@@ -109,7 +102,7 @@ static BayerMatrix bayer_matrix_create(int n) {
     return result;
 }
 
-static void bayer_matrix_destroy(BayerMatrix* matrix) {
+void bayer_matrix_destroy(BayerMatrix* matrix) {
     for (int i = 0; i < matrix->size; i++) {
         free(matrix->data[i]);
     }
@@ -181,7 +174,7 @@ void vertex_data_add_to_vertex_buffer(SimpleVertexData* vd, float value) {
 }
 
 void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view,
-                      mat4 projection, Vector* depth_buffer) {
+                      mat4 projection, Vector* depth_buffer, BayerMatrix *T) {
     if (!vd) return;
     
     //pd->system->logToConsole("Drawing VertexData with %zu floats", vd->m_vertex_buffer.size);
@@ -255,13 +248,6 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
         float dot = glm_vec3_dot(normal, light_dir);
         float brightness = (dot + 1.0f) * 0.5f;
         
-        int width = maxX - minX;
-        int height = maxY - minY;
-        int n = 1;
-        while (n < max_int(width, height)) n *= 2;
-        
-        BayerMatrix T = bayer_matrix_create(n);
-        
         /* Rasterize triangle */
         for (int i = minX; i <= maxX; i++) {
             for (int j = minY; j <= maxY; j++) {
@@ -292,7 +278,7 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
                     depth_val = iz;
                     int y = j - minY;
                     int x = i - minX;
-                    int color = (brightness > T.data[y % n][x % n]) ? kColorWhite : kColorBlack;
+                    int color = (brightness > T->data[y][x]) ? kColorWhite : kColorBlack;
                     pd->graphics->setPixel(i, j, color);
                 }
             }
@@ -306,7 +292,7 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
         draw_line_z_thick(pd, depth_buffer, (int)clip3[0], (int)clip3[1], iz2,
                          (int)clip1[0], (int)clip1[1], iz0, kColorBlack, line_thickness);
         
-        bayer_matrix_destroy(&T);
+        // bayer_matrix_destroy(&T);
     }
 }
 
@@ -392,7 +378,7 @@ void scene_object_destroy(SceneObject* obj) {
 }
 
 void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd,
-                       Vector* depth_buffer) {
+                       Vector* depth_buffer, BayerMatrix* T) {
     if (!obj) return;
     
     /* Build model matrix */
@@ -416,7 +402,7 @@ void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd,
                    0.1f, 1000.0f, perspective);
     
     /* Draw */
-    vertex_data_draw(obj->m_vertex_data, pd, model, view, perspective, depth_buffer);
+    vertex_data_draw(obj->m_vertex_data, pd, model, view, perspective, depth_buffer, T);
 }
 
 void scene_object_set_transform(SceneObject* obj, Transform transform) {

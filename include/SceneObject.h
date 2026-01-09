@@ -10,6 +10,16 @@
 #define SCREEN_WIDTH 400
 #define SCREEN_HEIGHT 240
 
+#define SHADE_COUNT 6
+
+typedef struct BayerMatrix {
+    float** data;
+    int size;
+} BayerMatrix;
+
+void bayer_matrix_destroy(BayerMatrix* matrix);
+BayerMatrix bayer_matrix_create(int n);
+
 /* Forward declarations */
 typedef struct Camera Camera;
 typedef struct SimpleVertexData SimpleVertexData;
@@ -28,7 +38,7 @@ void vertex_data_destroy(SimpleVertexData* vd);
 /* Base methods */
 void vertex_data_add_to_vertex_buffer(SimpleVertexData* vd, float value);
 void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view, 
-                      mat4 projection, Vector* depth_buffer);
+                      mat4 projection, Vector* depth_buffer, BayerMatrix *T);
 void vertex_data_print_vertex_buffer(SimpleVertexData* vd);
 
 
@@ -96,7 +106,7 @@ void scene_object_destroy(SceneObject* obj);
 
 /* Public methods */
 void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd, 
-                       Vector* depth_buffer);
+                       Vector* depth_buffer, BayerMatrix* T);
 void scene_object_set_transform(SceneObject* obj, Transform transform);
 void scene_object_set_position(SceneObject* obj, vec3 position);
 void scene_object_set_rotation(SceneObject* obj, versor rotation);
