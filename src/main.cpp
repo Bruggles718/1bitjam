@@ -89,9 +89,9 @@ static int update(void* userdata)
 
 	PlaydateAPI* pd = (PlaydateAPI*)userdata;
 
-
-	scene_object->rotate(1.0f, glm::vec3(0.0f, 1.0f, 0.0f));
-	scene_object->rotate(1.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+	float rot_speed = 1.0f;
+	scene_object->rotate(rot_speed, glm::vec3(0.0f, 1.0f, 0.0f));
+	scene_object->rotate(rot_speed, glm::vec3(1.0f, 0.0f, 0.0f));
 	pd->graphics->clear(kColorWhite);
 	
 	scene_object->draw(*camera, pd, depth_buffer);
