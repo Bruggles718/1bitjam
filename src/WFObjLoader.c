@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cglm/cglm.h>
+#include <assert.h>
 
 /* ===== Utility Functions ===== */
 
@@ -52,14 +53,14 @@ void vector_concat_floats(Vector* a, Vector* b, Vector* out_result) {
     
     /* Copy from a */
     for (size_t i = 0; i < a->size; i++) {
-        float* val = (float*)vector_get(a, i);
-        vector_push_back(out_result, val);
+        float val = VECTOR_GET_AS(float, a, i);
+        vector_push_back(out_result, &val);
     }
     
     /* Copy from b */
     for (size_t i = 0; i < b->size; i++) {
-        float* val = (float*)vector_get(b, i);
-        vector_push_back(out_result, val);
+        float val = VECTOR_GET_AS(float, b, i);
+        vector_push_back(out_result, &val);
     }
 }
 
@@ -204,16 +205,15 @@ void wfobjloader_destroy(WFObjLoader* loader) {
 }
 
 SceneObject wfobjloader_create_scene_object_from_file(
-    WFObjLoader* loader,
+    WFObjLoader* obj_loader,
     const char* filepath,
     PlaydateAPI* pd
-) {
-    WFObjLoader* obj_loader = (WFObjLoader*)loader;
-    
+) {    
     wfobjloader_parse_obj_file(obj_loader, filepath, pd);
     
     Vector vertex_buffer;
     vector_setup(&vertex_buffer, 100, sizeof(float));
+    assert(vector_is_initialized(&vertex_buffer));
     wfobjloader_get_simple_vertex_buffer(obj_loader, &vertex_buffer);
     
     /* Create SimpleVertexData */

@@ -145,9 +145,9 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
                     continue;
                 
                 int idx = py * SCREEN_WIDTH + px;
-                float* depth_val = (float*)vector_get(depth_buffer, idx);
-                if (iz > *depth_val) {
-                    *depth_val = iz;
+                float depth_val = VECTOR_GET_AS(float, depth_buffer, idx);
+                if (iz > depth_val) {
+                    depth_val = iz;
                     pd->graphics->setPixel(px, py, color);
                 }
             }
@@ -163,9 +163,11 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
 
 void vertex_data_init(SimpleVertexData* vd, Vector* vertex_buffer) {
     if (!vd || !vertex_buffer) return;
+    vd->m_vertex_buffer.data = NULL;
     
     /* Copy the vertex buffer */
     vector_copy(&vd->m_vertex_buffer, vertex_buffer);
+    //vd->m_vertex_buffer = *vertex_buffer;
 }
 
 void vertex_data_destroy(SimpleVertexData* vd) {
@@ -178,14 +180,14 @@ void vertex_data_add_to_vertex_buffer(SimpleVertexData* vd, float value) {
     vector_push_back(&vd->m_vertex_buffer, &value);
 }
 
-void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* view,
-                      mat4* projection, Vector* depth_buffer) {
+void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view,
+                      mat4 projection, Vector* depth_buffer) {
     if (!vd) return;
     
     pd->system->logToConsole("Drawing VertexData with %zu floats", vd->m_vertex_buffer.size);
     
     mat4 mv;
-    glm_mat4_mul(*view, *model, mv);
+    glm_mat4_mul(view, model, mv);
     
     /* Process triangles (9 floats per triangle: 3 vertices * 3 coords) */
     for (size_t i = 0; i < vd->m_vertex_buffer.size; i += 9) {
@@ -193,6 +195,7 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* 
         float x1 = buf[i], y1 = buf[i+1], z1 = buf[i+2];
         float x2 = buf[i+3], y2 = buf[i+4], z2 = buf[i+5];
         float x3 = buf[i+6], y3 = buf[i+7], z3 = buf[i+8];
+        //pd->system->logToConsole("verts: %f, %f, %f, %f, %f, %f, %f, %f, %f", x1, y1, z1, x2, y2, z2, x3, y3, z3);
         
         vec4 pos1 = {x1, y1, z1, 1.0f};
         vec4 pos2 = {x2, y2, z2, 1.0f};
@@ -212,9 +215,9 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* 
         
         /* Project to clip space */
         vec4 clip1_v4, clip2_v4, clip3_v4;
-        glm_mat4_mulv(*projection, view_pos1, clip1_v4);
-        glm_mat4_mulv(*projection, view_pos2, clip2_v4);
-        glm_mat4_mulv(*projection, view_pos3, clip3_v4);
+        glm_mat4_mulv(projection, view_pos1, clip1_v4);
+        glm_mat4_mulv(projection, view_pos2, clip2_v4);
+        glm_mat4_mulv(projection, view_pos3, clip3_v4);
         
         /* Perspective divide */
         vec3 clip1_v3 = {clip1_v4[0]/clip1_v4[3], clip1_v4[1]/clip1_v4[3], clip1_v4[2]/clip1_v4[3]};
@@ -226,11 +229,15 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* 
         vec2 clip2 = {(clip2_v3[0] + 1) * SCREEN_WIDTH * 0.5f, (1 - clip2_v3[1]) * SCREEN_HEIGHT * 0.5f};
         vec2 clip3 = {(clip3_v3[0] + 1) * SCREEN_WIDTH * 0.5f, (1 - clip3_v3[1]) * SCREEN_HEIGHT * 0.5f};
         
+        int line_thickness = 1;
+
         /* Bounding box */
-        int minX = max_int(0, (int)floorf(min3(clip1[0], clip2[0], clip3[0])));
-        int maxX = min_int(SCREEN_WIDTH - 1, (int)ceilf(max3(clip1[0], clip2[0], clip3[0])));
-        int minY = max_int(0, (int)floorf(min3(clip1[1], clip2[1], clip3[1])));
-        int maxY = min_int(SCREEN_HEIGHT - 1, (int)ceilf(max3(clip1[1], clip2[1], clip3[1])));
+        int minX = max_int(0, (int)floorf(min3(clip1[0], clip2[0], clip3[0]) + line_thickness));
+        int maxX = min_int(SCREEN_WIDTH - 1, (int)ceilf(max3(clip1[0], clip2[0], clip3[0]) - line_thickness));
+        int minY = max_int(0, (int)floorf(min3(clip1[1], clip2[1], clip3[1]) + line_thickness));
+        int maxY = min_int(SCREEN_HEIGHT - 1, (int)ceilf(max3(clip1[1], clip2[1], clip3[1]) - line_thickness));
+
+        //pd->system->logToConsole("bounding box: %i, %i, %i, %i", minX, minY, maxX, maxY);
         
         float vz0 = -view_pos1[2];
         float vz1 = -view_pos2[2];
@@ -254,11 +261,10 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* 
         while (n < max_int(width, height)) n *= 2;
         
         BayerMatrix T = bayer_matrix_create(n);
-        int line_thickness = 1;
         
         /* Rasterize triangle */
-        for (int i = minX + line_thickness; i <= maxX - line_thickness; i++) {
-            for (int j = minY + line_thickness; j <= maxY - line_thickness; j++) {
+        for (int i = minX; i <= maxX; i++) {
+            for (int j = minY; j <= maxY; j++) {
                 float px = i + 0.5f;
                 float py = j + 0.5f;
                 
@@ -281,9 +287,9 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* 
                 int idx = j * SCREEN_WIDTH + i;
                 
                 /* Depth test */
-                float* depth_val = (float*)vector_get(depth_buffer, idx);
-                if (iz > *depth_val) {
-                    *depth_val = iz;
+                float depth_val = VECTOR_GET_AS(float, depth_buffer, idx);
+                if (iz > depth_val) {
+                    depth_val = iz;
                     int y = j - minY;
                     int x = i - minX;
                     int color = (brightness > T.data[y % n][x % n]) ? kColorWhite : kColorBlack;
@@ -308,8 +314,8 @@ void vertex_data_print_vertex_buffer(SimpleVertexData* vd) {
     if (!vd) return;
     
     for (size_t i = 0; i < vd->m_vertex_buffer.size; i++) {
-        float* f = (float*)vector_get(&vd->m_vertex_buffer, i);
-        printf("%f\n", *f);
+        float f = VECTOR_GET_AS(float, &vd->m_vertex_buffer, i);
+        printf("%f\n", f);
     }
 }
 
@@ -410,7 +416,7 @@ void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd,
                    0.1f, 1000.0f, perspective);
     
     /* Draw */
-    vertex_data_draw(obj->m_vertex_data, pd, &model, &view, &perspective, depth_buffer);
+    vertex_data_draw(obj->m_vertex_data, pd, model, view, perspective, depth_buffer);
 }
 
 void scene_object_set_transform(SceneObject* obj, Transform transform) {

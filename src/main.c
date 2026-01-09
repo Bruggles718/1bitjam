@@ -23,6 +23,14 @@ SceneObject *scene_object;
 Camera *camera;
 Vector* depth_buffer;
 
+void initialize_depth_buffer() {
+	int size = SCREEN_WIDTH * SCREEN_HEIGHT;
+	for (int i = 0; i < size; i += 1) {
+		float ni = -INFINITY;
+		vector_push_back(depth_buffer, &ni);
+	}
+}
+
 #ifdef _WINDLL
 __declspec(dllexport)
 #endif
@@ -44,9 +52,12 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		scene_object = (SceneObject*)malloc(sizeof(SceneObject));
 		*scene_object = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "icosahedron.obj", pd);
 		camera = (Camera*)malloc(sizeof(Camera));
+		camera_init(camera);
 		vec3 pos = {0.0, 0.0, 0.0};
 		scene_object_set_position(scene_object, pos);
+		depth_buffer = (Vector*)malloc(sizeof(Vector));
 		vector_setup(depth_buffer, SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(float));
+		initialize_depth_buffer();
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(update, pd);
 	}
@@ -64,27 +75,21 @@ int dx = 1;
 int dy = 2;
 
 
-int vector_fill(Vector* vector, void* value)
+void reset_depth_buffer()
 {
-    if (!vector || !vector->data)
-        return VECTOR_ERROR;
-
-    for (size_t i = 0; i < vector->size; ++i)
+	float* data = (float*)depth_buffer->data;
+    for (int i = 0; i < depth_buffer->size; i += 1)
     {
-        void* dest = (char*)vector->data + i * vector->element_size;
-        memcpy(dest, value, vector->element_size);
+        data[i] = -INFINITY;
     }
-
-    return VECTOR_SUCCESS;
 }
 
 static int update(void* userdata)
 {
-	float negative_infinity = -INFINITY;
 
-	vector_fill(depth_buffer, &negative_infinity);
-
+	reset_depth_buffer();
 	PlaydateAPI* pd = userdata;
+	// pd->system->logToConsole("db val: %f", VECTOR_GET_AS(float, depth_buffer, 0));
 	
 	pd->graphics->clear(kColorWhite);
 

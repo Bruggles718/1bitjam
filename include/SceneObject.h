@@ -27,8 +27,8 @@ void vertex_data_destroy(SimpleVertexData* vd);
 
 /* Base methods */
 void vertex_data_add_to_vertex_buffer(SimpleVertexData* vd, float value);
-void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* view, 
-                      mat4* projection, Vector* depth_buffer);
+void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view, 
+                      mat4 projection, Vector* depth_buffer);
 void vertex_data_print_vertex_buffer(SimpleVertexData* vd);
 
 

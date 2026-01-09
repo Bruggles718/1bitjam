@@ -23,8 +23,45 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <execinfo.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "vector.h"
+
+#define MAX_FRAMES 128
+
+void print_stack_trace(void) {
+    void* callstack[MAX_FRAMES];
+    int frames, i;
+    char** strs;
+
+    frames = backtrace(callstack, MAX_FRAMES);
+    strs = backtrace_symbols(callstack, frames);
+
+    if (strs == NULL) {
+        perror("backtrace_symbols");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Stack trace (depth %d):\n", frames);
+    for (i = 0; i < frames; ++i) {
+        printf("%s\n", strs[i]);
+    }
+
+    free(strs);
+}
+
+#undef assert
+
+#define assert(cond)                                             \
+    if (!(cond)) {                                          \
+            /* your custom logic here */                         \
+            print_stack_trace();              \
+                                                                \
+            /* call the real assert behavior */                  \
+            __assert_fail(#cond, __FILE__, __LINE__, __func__);  \
+        }
 
 int vector_setup(Vector* vector, size_t capacity, size_t element_size) {
 	assert(vector != NULL);
