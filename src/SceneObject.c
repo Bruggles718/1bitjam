@@ -161,27 +161,24 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
 
 /* ===== VertexData Implementation ===== */
 
-void vertex_data_init(VertexData* vd, Vector* vertex_buffer) {
+void vertex_data_init(SimpleVertexData* vd, Vector* vertex_buffer) {
     if (!vd || !vertex_buffer) return;
     
     /* Copy the vertex buffer */
     vector_copy(&vd->m_vertex_buffer, vertex_buffer);
-    
-    /* Initialize virtual function pointer to NULL (must be set by derived class) */
-    vd->send_to_gpu = NULL;
 }
 
-void vertex_data_destroy(VertexData* vd) {
+void vertex_data_destroy(SimpleVertexData* vd) {
     if (!vd) return;
     vector_destroy(&vd->m_vertex_buffer);
 }
 
-void vertex_data_add_to_vertex_buffer(VertexData* vd, float value) {
+void vertex_data_add_to_vertex_buffer(SimpleVertexData* vd, float value) {
     if (!vd) return;
     vector_push_back(&vd->m_vertex_buffer, &value);
 }
 
-void vertex_data_draw(VertexData* vd, PlaydateAPI* pd, mat4* model, mat4* view,
+void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* view,
                       mat4* projection, Vector* depth_buffer) {
     if (!vd) return;
     
@@ -307,7 +304,7 @@ void vertex_data_draw(VertexData* vd, PlaydateAPI* pd, mat4* model, mat4* view,
     }
 }
 
-void vertex_data_print_vertex_buffer(VertexData* vd) {
+void vertex_data_print_vertex_buffer(SimpleVertexData* vd) {
     if (!vd) return;
     
     for (size_t i = 0; i < vd->m_vertex_buffer.size; i++) {
@@ -323,10 +320,7 @@ void simple_vertex_data_init(SimpleVertexData* svd, Vector* vertex_buffer,
     if (!svd) return;
     
     /* Initialize base class */
-    vertex_data_init(&svd->base, vertex_buffer);
-    
-    /* Set virtual function pointer */
-    svd->base.send_to_gpu = simple_vertex_data_send_to_gpu;
+    vertex_data_init(svd, vertex_buffer);
     
     /* Copy derived class data */
     svd->m_stride = stride;
@@ -344,10 +338,10 @@ void simple_vertex_data_destroy(SimpleVertexData* svd) {
     }
     
     /* Destroy base class */
-    vertex_data_destroy(&svd->base);
+    vertex_data_destroy(svd);
 }
 
-void simple_vertex_data_send_to_gpu(VertexData* vd) {
+void simple_vertex_data_send_to_gpu(SimpleVertexData* vd) {
     /* Cast to derived type */
     SimpleVertexData* svd = (SimpleVertexData*)vd;
     /* Implementation would go here */
@@ -375,7 +369,7 @@ Transform transform_create(void) {
 
 /* ===== SceneObject Implementation ===== */
 
-void scene_object_init(SceneObject* obj, VertexData* vertex_data) {
+void scene_object_init(SceneObject* obj, SimpleVertexData* vertex_data) {
     if (!obj) return;
     
     obj->m_vertex_data = vertex_data;
@@ -389,13 +383,6 @@ void scene_object_init(SceneObject* obj, VertexData* vertex_data) {
 void scene_object_destroy(SceneObject* obj) {
     if (!obj) return;
     /* Vertex data is not owned by scene object, don't free it */
-}
-
-void scene_object_send_vertex_data_to_gpu(SceneObject* obj) {
-    if (!obj || !obj->m_vertex_data) return;
-    if (obj->m_vertex_data->send_to_gpu) {
-        obj->m_vertex_data->send_to_gpu(obj->m_vertex_data);
-    }
 }
 
 void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd,

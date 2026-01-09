@@ -229,7 +229,7 @@ SceneObject wfobjloader_create_scene_object_from_file(
     
     /* Create SceneObject */
     SceneObject scene_object;
-    scene_object_init(&scene_object, (VertexData*)vertex_data);
+    scene_object_init(&scene_object, (SimpleVertexData*)vertex_data);
     
     vector_destroy(&vertex_buffer);
     

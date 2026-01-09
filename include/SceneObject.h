@@ -12,37 +12,30 @@
 
 /* Forward declarations */
 typedef struct Camera Camera;
-typedef struct VertexData VertexData;
+typedef struct SimpleVertexData SimpleVertexData;
 
 /* ===== VertexData Base "Class" ===== */
 
 /* Virtual function pointer type for send_to_gpu */
-typedef void (*send_to_gpu_fn)(VertexData* vertex_data);
-
-typedef struct VertexData {
-    Vector m_vertex_buffer; /* Vector of floats */
-    
-    /* Virtual function pointer */
-    send_to_gpu_fn send_to_gpu;
-} VertexData;
+typedef void (*send_to_gpu_fn)(SimpleVertexData* vertex_data);
 
 /* Base constructor */
-void vertex_data_init(VertexData* vd, Vector* vertex_buffer);
+void vertex_data_init(SimpleVertexData* vd, Vector* vertex_buffer);
 
 /* Base destructor */
-void vertex_data_destroy(VertexData* vd);
+void vertex_data_destroy(SimpleVertexData* vd);
 
 /* Base methods */
-void vertex_data_add_to_vertex_buffer(VertexData* vd, float value);
-void vertex_data_draw(VertexData* vd, PlaydateAPI* pd, mat4* model, mat4* view, 
+void vertex_data_add_to_vertex_buffer(SimpleVertexData* vd, float value);
+void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4* model, mat4* view, 
                       mat4* projection, Vector* depth_buffer);
-void vertex_data_print_vertex_buffer(VertexData* vd);
+void vertex_data_print_vertex_buffer(SimpleVertexData* vd);
 
 
 /* ===== SimpleVertexData "Derived Class" ===== */
 
 typedef struct SimpleVertexData {
-    VertexData base; /* Inheritance - must be first member */
+    Vector m_vertex_buffer; 
     
     int m_stride;
     int* m_offsets;  /* Dynamic array of offsets */
@@ -62,7 +55,7 @@ void simple_vertex_data_init(
 void simple_vertex_data_destroy(SimpleVertexData* svd);
 
 /* Implementation of virtual function */
-void simple_vertex_data_send_to_gpu(VertexData* vd);
+void simple_vertex_data_send_to_gpu(SimpleVertexData* vd);
 
 /* Private helper methods */
 void simple_vertex_data_setup_for_send(SimpleVertexData* svd);
@@ -87,7 +80,7 @@ Transform transform_create_with_values(vec3 position, vec3 scale, versor rotatio
 /* ===== SceneObject "Class" ===== */
 
 typedef struct SceneObject {
-    VertexData* m_vertex_data; /* Pointer to allow polymorphism */
+    SimpleVertexData* m_vertex_data; /* Pointer to allow polymorphism */
     
     Transform m_transform;
     
@@ -96,7 +89,7 @@ typedef struct SceneObject {
 } SceneObject;
 
 /* Constructor */
-void scene_object_init(SceneObject* obj, VertexData* vertex_data);
+void scene_object_init(SceneObject* obj, SimpleVertexData* vertex_data);
 
 /* Destructor */
 void scene_object_destroy(SceneObject* obj);
