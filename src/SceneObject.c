@@ -205,6 +205,13 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
         vec3 cross_result;
         glm_vec3_cross(edge1, edge2, cross_result);
         if (cross_result[2] < 0) continue;
+
+        if (view_pos1[2] >= 0 &&
+            view_pos2[2] >= 0 &&
+            view_pos3[2] >= 0)
+        {
+            continue; // Entire triangle behind camera
+        }
         
         /* Project to clip space */
         vec4 clip1_v4, clip2_v4, clip3_v4;
