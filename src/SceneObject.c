@@ -282,7 +282,8 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
                 /* Depth test */
                 float depth_val = VECTOR_GET_AS(float, depth_buffer, idx);
                 if (iz > depth_val) {
-                    depth_val = iz;
+                    /*depth_val = iz;*/
+                    vector_assign(depth_buffer, idx, &iz);
                     int y = j - minY;
                     int x = i - minX;
                     int color = (brightness > T->data[y][x]) ? kColorWhite : kColorBlack;
