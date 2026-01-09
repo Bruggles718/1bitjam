@@ -27,6 +27,9 @@
 
 .SUFFIXES: .hpux_make_needs_suffix_list
 
+# Produce verbose output by default.
+VERBOSE = 1
+
 # Command-line flag to silence nested $(MAKE).
 $(VERBOSE)MAKESILENT = -s
 
@@ -53,10 +56,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/bruggles/Documents/playdate_stuff/1bitjam
+CMAKE_SOURCE_DIR = /home/bruggles/playdate_stuff/1bitjam
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/bruggles/Documents/playdate_stuff/1bitjam/build
+CMAKE_BINARY_DIR = /home/bruggles/playdate_stuff/1bitjam/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/1bitjam.dir/depend.make
@@ -69,84 +72,99 @@ include CMakeFiles/1bitjam.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/1bitjam.dir/flags.make
 
-CMakeFiles/1bitjam.dir/src/Camera.cpp.o: CMakeFiles/1bitjam.dir/flags.make
-CMakeFiles/1bitjam.dir/src/Camera.cpp.o: /home/bruggles/Documents/playdate_stuff/1bitjam/src/Camera.cpp
-CMakeFiles/1bitjam.dir/src/Camera.cpp.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/1bitjam.dir/src/Camera.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/Camera.cpp.o -MF CMakeFiles/1bitjam.dir/src/Camera.cpp.o.d -o CMakeFiles/1bitjam.dir/src/Camera.cpp.o -c /home/bruggles/Documents/playdate_stuff/1bitjam/src/Camera.cpp
+CMakeFiles/1bitjam.dir/src/Camera.c.o: CMakeFiles/1bitjam.dir/flags.make
+CMakeFiles/1bitjam.dir/src/Camera.c.o: /home/bruggles/playdate_stuff/1bitjam/src/Camera.c
+CMakeFiles/1bitjam.dir/src/Camera.c.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/1bitjam.dir/src/Camera.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/Camera.c.o -MF CMakeFiles/1bitjam.dir/src/Camera.c.o.d -o CMakeFiles/1bitjam.dir/src/Camera.c.o -c /home/bruggles/playdate_stuff/1bitjam/src/Camera.c
 
-CMakeFiles/1bitjam.dir/src/Camera.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/1bitjam.dir/src/Camera.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/bruggles/Documents/playdate_stuff/1bitjam/src/Camera.cpp > CMakeFiles/1bitjam.dir/src/Camera.cpp.i
+CMakeFiles/1bitjam.dir/src/Camera.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/1bitjam.dir/src/Camera.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/bruggles/playdate_stuff/1bitjam/src/Camera.c > CMakeFiles/1bitjam.dir/src/Camera.c.i
 
-CMakeFiles/1bitjam.dir/src/Camera.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/1bitjam.dir/src/Camera.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/bruggles/Documents/playdate_stuff/1bitjam/src/Camera.cpp -o CMakeFiles/1bitjam.dir/src/Camera.cpp.s
+CMakeFiles/1bitjam.dir/src/Camera.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/1bitjam.dir/src/Camera.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/bruggles/playdate_stuff/1bitjam/src/Camera.c -o CMakeFiles/1bitjam.dir/src/Camera.c.s
 
-CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o: CMakeFiles/1bitjam.dir/flags.make
-CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o: /home/bruggles/Documents/playdate_stuff/1bitjam/src/SceneObject.cpp
-CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o -MF CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o.d -o CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o -c /home/bruggles/Documents/playdate_stuff/1bitjam/src/SceneObject.cpp
+CMakeFiles/1bitjam.dir/src/SceneObject.c.o: CMakeFiles/1bitjam.dir/flags.make
+CMakeFiles/1bitjam.dir/src/SceneObject.c.o: /home/bruggles/playdate_stuff/1bitjam/src/SceneObject.c
+CMakeFiles/1bitjam.dir/src/SceneObject.c.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/1bitjam.dir/src/SceneObject.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/SceneObject.c.o -MF CMakeFiles/1bitjam.dir/src/SceneObject.c.o.d -o CMakeFiles/1bitjam.dir/src/SceneObject.c.o -c /home/bruggles/playdate_stuff/1bitjam/src/SceneObject.c
 
-CMakeFiles/1bitjam.dir/src/SceneObject.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/1bitjam.dir/src/SceneObject.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/bruggles/Documents/playdate_stuff/1bitjam/src/SceneObject.cpp > CMakeFiles/1bitjam.dir/src/SceneObject.cpp.i
+CMakeFiles/1bitjam.dir/src/SceneObject.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/1bitjam.dir/src/SceneObject.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/bruggles/playdate_stuff/1bitjam/src/SceneObject.c > CMakeFiles/1bitjam.dir/src/SceneObject.c.i
 
-CMakeFiles/1bitjam.dir/src/SceneObject.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/1bitjam.dir/src/SceneObject.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/bruggles/Documents/playdate_stuff/1bitjam/src/SceneObject.cpp -o CMakeFiles/1bitjam.dir/src/SceneObject.cpp.s
+CMakeFiles/1bitjam.dir/src/SceneObject.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/1bitjam.dir/src/SceneObject.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/bruggles/playdate_stuff/1bitjam/src/SceneObject.c -o CMakeFiles/1bitjam.dir/src/SceneObject.c.s
 
-CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o: CMakeFiles/1bitjam.dir/flags.make
-CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o: /home/bruggles/Documents/playdate_stuff/1bitjam/src/WFObjLoader.cpp
-CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o -MF CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o.d -o CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o -c /home/bruggles/Documents/playdate_stuff/1bitjam/src/WFObjLoader.cpp
+CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o: CMakeFiles/1bitjam.dir/flags.make
+CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o: /home/bruggles/playdate_stuff/1bitjam/src/WFObjLoader.c
+CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building C object CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o -MF CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o.d -o CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o -c /home/bruggles/playdate_stuff/1bitjam/src/WFObjLoader.c
 
-CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/bruggles/Documents/playdate_stuff/1bitjam/src/WFObjLoader.cpp > CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.i
+CMakeFiles/1bitjam.dir/src/WFObjLoader.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/1bitjam.dir/src/WFObjLoader.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/bruggles/playdate_stuff/1bitjam/src/WFObjLoader.c > CMakeFiles/1bitjam.dir/src/WFObjLoader.c.i
 
-CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/bruggles/Documents/playdate_stuff/1bitjam/src/WFObjLoader.cpp -o CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.s
+CMakeFiles/1bitjam.dir/src/WFObjLoader.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/1bitjam.dir/src/WFObjLoader.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/bruggles/playdate_stuff/1bitjam/src/WFObjLoader.c -o CMakeFiles/1bitjam.dir/src/WFObjLoader.c.s
 
-CMakeFiles/1bitjam.dir/src/main.cpp.o: CMakeFiles/1bitjam.dir/flags.make
-CMakeFiles/1bitjam.dir/src/main.cpp.o: /home/bruggles/Documents/playdate_stuff/1bitjam/src/main.cpp
-CMakeFiles/1bitjam.dir/src/main.cpp.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/1bitjam.dir/src/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/main.cpp.o -MF CMakeFiles/1bitjam.dir/src/main.cpp.o.d -o CMakeFiles/1bitjam.dir/src/main.cpp.o -c /home/bruggles/Documents/playdate_stuff/1bitjam/src/main.cpp
+CMakeFiles/1bitjam.dir/src/main.c.o: CMakeFiles/1bitjam.dir/flags.make
+CMakeFiles/1bitjam.dir/src/main.c.o: /home/bruggles/playdate_stuff/1bitjam/src/main.c
+CMakeFiles/1bitjam.dir/src/main.c.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building C object CMakeFiles/1bitjam.dir/src/main.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/main.c.o -MF CMakeFiles/1bitjam.dir/src/main.c.o.d -o CMakeFiles/1bitjam.dir/src/main.c.o -c /home/bruggles/playdate_stuff/1bitjam/src/main.c
 
-CMakeFiles/1bitjam.dir/src/main.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/1bitjam.dir/src/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/bruggles/Documents/playdate_stuff/1bitjam/src/main.cpp > CMakeFiles/1bitjam.dir/src/main.cpp.i
+CMakeFiles/1bitjam.dir/src/main.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/1bitjam.dir/src/main.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/bruggles/playdate_stuff/1bitjam/src/main.c > CMakeFiles/1bitjam.dir/src/main.c.i
 
-CMakeFiles/1bitjam.dir/src/main.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/1bitjam.dir/src/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/bruggles/Documents/playdate_stuff/1bitjam/src/main.cpp -o CMakeFiles/1bitjam.dir/src/main.cpp.s
+CMakeFiles/1bitjam.dir/src/main.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/1bitjam.dir/src/main.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/bruggles/playdate_stuff/1bitjam/src/main.c -o CMakeFiles/1bitjam.dir/src/main.c.s
+
+CMakeFiles/1bitjam.dir/src/vector.c.o: CMakeFiles/1bitjam.dir/flags.make
+CMakeFiles/1bitjam.dir/src/vector.c.o: /home/bruggles/playdate_stuff/1bitjam/src/vector.c
+CMakeFiles/1bitjam.dir/src/vector.c.o: CMakeFiles/1bitjam.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building C object CMakeFiles/1bitjam.dir/src/vector.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/1bitjam.dir/src/vector.c.o -MF CMakeFiles/1bitjam.dir/src/vector.c.o.d -o CMakeFiles/1bitjam.dir/src/vector.c.o -c /home/bruggles/playdate_stuff/1bitjam/src/vector.c
+
+CMakeFiles/1bitjam.dir/src/vector.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/1bitjam.dir/src/vector.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/bruggles/playdate_stuff/1bitjam/src/vector.c > CMakeFiles/1bitjam.dir/src/vector.c.i
+
+CMakeFiles/1bitjam.dir/src/vector.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/1bitjam.dir/src/vector.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/bruggles/playdate_stuff/1bitjam/src/vector.c -o CMakeFiles/1bitjam.dir/src/vector.c.s
 
 # Object files for target 1bitjam
 1bitjam_OBJECTS = \
-"CMakeFiles/1bitjam.dir/src/Camera.cpp.o" \
-"CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o" \
-"CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o" \
-"CMakeFiles/1bitjam.dir/src/main.cpp.o"
+"CMakeFiles/1bitjam.dir/src/Camera.c.o" \
+"CMakeFiles/1bitjam.dir/src/SceneObject.c.o" \
+"CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o" \
+"CMakeFiles/1bitjam.dir/src/main.c.o" \
+"CMakeFiles/1bitjam.dir/src/vector.c.o"
 
 # External object files for target 1bitjam
 1bitjam_EXTERNAL_OBJECTS =
 
-lib1bitjam.so: CMakeFiles/1bitjam.dir/src/Camera.cpp.o
-lib1bitjam.so: CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o
-lib1bitjam.so: CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o
-lib1bitjam.so: CMakeFiles/1bitjam.dir/src/main.cpp.o
+lib1bitjam.so: CMakeFiles/1bitjam.dir/src/Camera.c.o
+lib1bitjam.so: CMakeFiles/1bitjam.dir/src/SceneObject.c.o
+lib1bitjam.so: CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o
+lib1bitjam.so: CMakeFiles/1bitjam.dir/src/main.c.o
+lib1bitjam.so: CMakeFiles/1bitjam.dir/src/vector.c.o
 lib1bitjam.so: CMakeFiles/1bitjam.dir/build.make
-lib1bitjam.so: submodules/playdate-cpp/libpdcpp_core.a
-lib1bitjam.so: submodules/playdate-cpp/libplaydate_sdk.a
 lib1bitjam.so: CMakeFiles/1bitjam.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX shared library lib1bitjam.so"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking C shared library lib1bitjam.so"
+	/usr/bin/cmake -E make_directory /home/bruggles/playdate_stuff/1bitjam
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/1bitjam.dir/link.txt --verbose=$(VERBOSE)
-	/usr/bin/cmake -E copy /home/bruggles/Documents/playdate_stuff/1bitjam/build/lib1bitjam.so /home/bruggles/Documents/playdate_stuff/1bitjam/Source/pdex.so
-	/home/bruggles/Documents/playdate_stuff/PlaydateSDK-3.0.2/bin/pdc -sdkpath /home/bruggles/Documents/playdate_stuff/PlaydateSDK-3.0.2 /home/bruggles/Documents/playdate_stuff/1bitjam/Source /home/bruggles/Documents/playdate_stuff/1bitjam/1bitjam.pdx
+	/usr/bin/cmake -E copy /home/bruggles/playdate_stuff/1bitjam/build/lib1bitjam.so /home/bruggles/playdate_stuff/1bitjam/Source/pdex.so
+	/home/bruggles/playdate_stuff/PlaydateSDK-3.0.2/bin/pdc -sdkpath /home/bruggles/playdate_stuff/PlaydateSDK-3.0.2 /home/bruggles/playdate_stuff/1bitjam/Source /home/bruggles/playdate_stuff/1bitjam/1bitjam.pdx
 
 # Rule to build all files generated by this target.
 CMakeFiles/1bitjam.dir/build: lib1bitjam.so
@@ -157,6 +175,6 @@ CMakeFiles/1bitjam.dir/clean:
 .PHONY : CMakeFiles/1bitjam.dir/clean
 
 CMakeFiles/1bitjam.dir/depend:
-	cd /home/bruggles/Documents/playdate_stuff/1bitjam/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/bruggles/Documents/playdate_stuff/1bitjam /home/bruggles/Documents/playdate_stuff/1bitjam /home/bruggles/Documents/playdate_stuff/1bitjam/build /home/bruggles/Documents/playdate_stuff/1bitjam/build /home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles/1bitjam.dir/DependInfo.cmake "--color=$(COLOR)"
+	cd /home/bruggles/playdate_stuff/1bitjam/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/bruggles/playdate_stuff/1bitjam /home/bruggles/playdate_stuff/1bitjam /home/bruggles/playdate_stuff/1bitjam/build /home/bruggles/playdate_stuff/1bitjam/build /home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles/1bitjam.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/1bitjam.dir/depend
 

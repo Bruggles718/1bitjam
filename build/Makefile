@@ -31,6 +31,9 @@ default_target: all
 
 .SUFFIXES: .hpux_make_needs_suffix_list
 
+# Produce verbose output by default.
+VERBOSE = 1
+
 # Command-line flag to silence nested $(MAKE).
 $(VERBOSE)MAKESILENT = -s
 
@@ -57,18 +60,18 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/bruggles/Documents/playdate_stuff/1bitjam
+CMAKE_SOURCE_DIR = /home/bruggles/playdate_stuff/1bitjam
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/bruggles/Documents/playdate_stuff/1bitjam/build
+CMAKE_BINARY_DIR = /home/bruggles/playdate_stuff/1bitjam/build
 
 #=============================================================================
 # Targets provided globally by CMake.
 
 # Special rule for the target edit_cache
 edit_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "No interactive CMake dialog available..."
-	/usr/bin/cmake -E echo No\ interactive\ CMake\ dialog\ available.
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Running CMake cache editor..."
+	/usr/bin/cmake-gui -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -87,9 +90,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles /home/bruggles/Documents/playdate_stuff/1bitjam/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles /home/bruggles/playdate_stuff/1bitjam/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -113,7 +116,6 @@ preinstall/fast:
 
 # clear depends
 depend:
-	$(CMAKE_COMMAND) -P /home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles/VerifyGlobs.cmake
 	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
@@ -130,127 +132,125 @@ depend:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/build
 .PHONY : 1bitjam/fast
 
-#=============================================================================
-# Target rules for targets named playdate_sdk
-
-# Build rule for target.
-playdate_sdk: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 playdate_sdk
-.PHONY : playdate_sdk
-
-# fast build rule for target.
-playdate_sdk/fast:
-	$(MAKE) $(MAKESILENT) -f submodules/playdate-cpp/CMakeFiles/playdate_sdk.dir/build.make submodules/playdate-cpp/CMakeFiles/playdate_sdk.dir/build
-.PHONY : playdate_sdk/fast
-
-#=============================================================================
-# Target rules for targets named pdcpp_core
-
-# Build rule for target.
-pdcpp_core: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 pdcpp_core
-.PHONY : pdcpp_core
-
-# fast build rule for target.
-pdcpp_core/fast:
-	$(MAKE) $(MAKESILENT) -f submodules/playdate-cpp/CMakeFiles/pdcpp_core.dir/build.make submodules/playdate-cpp/CMakeFiles/pdcpp_core.dir/build
-.PHONY : pdcpp_core/fast
-
-src/Camera.o: src/Camera.cpp.o
+src/Camera.o: src/Camera.c.o
 .PHONY : src/Camera.o
 
 # target to build an object file
-src/Camera.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/Camera.cpp.o
-.PHONY : src/Camera.cpp.o
+src/Camera.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/Camera.c.o
+.PHONY : src/Camera.c.o
 
-src/Camera.i: src/Camera.cpp.i
+src/Camera.i: src/Camera.c.i
 .PHONY : src/Camera.i
 
 # target to preprocess a source file
-src/Camera.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/Camera.cpp.i
-.PHONY : src/Camera.cpp.i
+src/Camera.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/Camera.c.i
+.PHONY : src/Camera.c.i
 
-src/Camera.s: src/Camera.cpp.s
+src/Camera.s: src/Camera.c.s
 .PHONY : src/Camera.s
 
 # target to generate assembly for a file
-src/Camera.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/Camera.cpp.s
-.PHONY : src/Camera.cpp.s
+src/Camera.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/Camera.c.s
+.PHONY : src/Camera.c.s
 
-src/SceneObject.o: src/SceneObject.cpp.o
+src/SceneObject.o: src/SceneObject.c.o
 .PHONY : src/SceneObject.o
 
 # target to build an object file
-src/SceneObject.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/SceneObject.cpp.o
-.PHONY : src/SceneObject.cpp.o
+src/SceneObject.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/SceneObject.c.o
+.PHONY : src/SceneObject.c.o
 
-src/SceneObject.i: src/SceneObject.cpp.i
+src/SceneObject.i: src/SceneObject.c.i
 .PHONY : src/SceneObject.i
 
 # target to preprocess a source file
-src/SceneObject.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/SceneObject.cpp.i
-.PHONY : src/SceneObject.cpp.i
+src/SceneObject.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/SceneObject.c.i
+.PHONY : src/SceneObject.c.i
 
-src/SceneObject.s: src/SceneObject.cpp.s
+src/SceneObject.s: src/SceneObject.c.s
 .PHONY : src/SceneObject.s
 
 # target to generate assembly for a file
-src/SceneObject.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/SceneObject.cpp.s
-.PHONY : src/SceneObject.cpp.s
+src/SceneObject.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/SceneObject.c.s
+.PHONY : src/SceneObject.c.s
 
-src/WFObjLoader.o: src/WFObjLoader.cpp.o
+src/WFObjLoader.o: src/WFObjLoader.c.o
 .PHONY : src/WFObjLoader.o
 
 # target to build an object file
-src/WFObjLoader.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.o
-.PHONY : src/WFObjLoader.cpp.o
+src/WFObjLoader.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o
+.PHONY : src/WFObjLoader.c.o
 
-src/WFObjLoader.i: src/WFObjLoader.cpp.i
+src/WFObjLoader.i: src/WFObjLoader.c.i
 .PHONY : src/WFObjLoader.i
 
 # target to preprocess a source file
-src/WFObjLoader.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.i
-.PHONY : src/WFObjLoader.cpp.i
+src/WFObjLoader.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/WFObjLoader.c.i
+.PHONY : src/WFObjLoader.c.i
 
-src/WFObjLoader.s: src/WFObjLoader.cpp.s
+src/WFObjLoader.s: src/WFObjLoader.c.s
 .PHONY : src/WFObjLoader.s
 
 # target to generate assembly for a file
-src/WFObjLoader.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/WFObjLoader.cpp.s
-.PHONY : src/WFObjLoader.cpp.s
+src/WFObjLoader.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/WFObjLoader.c.s
+.PHONY : src/WFObjLoader.c.s
 
-src/main.o: src/main.cpp.o
+src/main.o: src/main.c.o
 .PHONY : src/main.o
 
 # target to build an object file
-src/main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/main.cpp.o
-.PHONY : src/main.cpp.o
+src/main.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/main.c.o
+.PHONY : src/main.c.o
 
-src/main.i: src/main.cpp.i
+src/main.i: src/main.c.i
 .PHONY : src/main.i
 
 # target to preprocess a source file
-src/main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/main.cpp.i
-.PHONY : src/main.cpp.i
+src/main.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/main.c.i
+.PHONY : src/main.c.i
 
-src/main.s: src/main.cpp.s
+src/main.s: src/main.c.s
 .PHONY : src/main.s
 
 # target to generate assembly for a file
-src/main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/main.cpp.s
-.PHONY : src/main.cpp.s
+src/main.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/main.c.s
+.PHONY : src/main.c.s
+
+src/vector.o: src/vector.c.o
+.PHONY : src/vector.o
+
+# target to build an object file
+src/vector.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/vector.c.o
+.PHONY : src/vector.c.o
+
+src/vector.i: src/vector.c.i
+.PHONY : src/vector.i
+
+# target to preprocess a source file
+src/vector.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/vector.c.i
+.PHONY : src/vector.c.i
+
+src/vector.s: src/vector.c.s
+.PHONY : src/vector.s
+
+# target to generate assembly for a file
+src/vector.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/1bitjam.dir/build.make CMakeFiles/1bitjam.dir/src/vector.c.s
+.PHONY : src/vector.c.s
 
 # Help Target
 help:
@@ -261,8 +261,6 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... 1bitjam"
-	@echo "... pdcpp_core"
-	@echo "... playdate_sdk"
 	@echo "... src/Camera.o"
 	@echo "... src/Camera.i"
 	@echo "... src/Camera.s"
@@ -275,6 +273,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/vector.o"
+	@echo "... src/vector.i"
+	@echo "... src/vector.s"
 .PHONY : help
 
 
@@ -286,7 +287,6 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	$(CMAKE_COMMAND) -P /home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles/VerifyGlobs.cmake
 	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

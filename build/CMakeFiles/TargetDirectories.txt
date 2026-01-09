@@ -1,7 +1,3 @@
-/home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles/1bitjam.dir
-/home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles/edit_cache.dir
-/home/bruggles/Documents/playdate_stuff/1bitjam/build/CMakeFiles/rebuild_cache.dir
-/home/bruggles/Documents/playdate_stuff/1bitjam/build/submodules/playdate-cpp/CMakeFiles/playdate_sdk.dir
-/home/bruggles/Documents/playdate_stuff/1bitjam/build/submodules/playdate-cpp/CMakeFiles/pdcpp_core.dir
-/home/bruggles/Documents/playdate_stuff/1bitjam/build/submodules/playdate-cpp/CMakeFiles/edit_cache.dir
-/home/bruggles/Documents/playdate_stuff/1bitjam/build/submodules/playdate-cpp/CMakeFiles/rebuild_cache.dir
+/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles/1bitjam.dir
+/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles/edit_cache.dir
+/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles/rebuild_cache.dir
