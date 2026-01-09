@@ -184,7 +184,7 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
                       mat4 projection, Vector* depth_buffer) {
     if (!vd) return;
     
-    pd->system->logToConsole("Drawing VertexData with %zu floats", vd->m_vertex_buffer.size);
+    //pd->system->logToConsole("Drawing VertexData with %zu floats", vd->m_vertex_buffer.size);
     
     mat4 mv;
     glm_mat4_mul(view, model, mv);
