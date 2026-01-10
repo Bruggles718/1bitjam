@@ -1,1 +1,0 @@
-/usr/bin/cc -fPIC -shared -Wl,-soname,lib1bitjam.so -o lib1bitjam.so CMakeFiles/1bitjam.dir/src/Camera.c.o CMakeFiles/1bitjam.dir/src/SceneObject.c.o CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o CMakeFiles/1bitjam.dir/src/main.c.o CMakeFiles/1bitjam.dir/src/vector.c.o 

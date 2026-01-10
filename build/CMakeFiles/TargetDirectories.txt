@@ -1,3 +1,0 @@
-/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles/1bitjam.dir
-/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles/edit_cache.dir
-/home/bruggles/playdate_stuff/1bitjam/build/CMakeFiles/rebuild_cache.dir
