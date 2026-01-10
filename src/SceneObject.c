@@ -142,7 +142,8 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
                 float depth_val = VECTOR_GET_AS(float, depth_buffer, idx);
                 if (iz > depth_val) {
                     depth_val = iz;
-                    pd->graphics->setPixel(px, py, color);
+                    //pd->graphics->setPixel(px, py, color);
+                    setPixel(pd, px, py, color);
                 }
             }
         }
@@ -172,6 +173,10 @@ void vertex_data_destroy(SimpleVertexData* vd) {
 void vertex_data_add_to_vertex_buffer(SimpleVertexData* vd, float value) {
     if (!vd) return;
     vector_push_back(&vd->m_vertex_buffer, &value);
+}
+
+void draw_2x2_block(PlaydateAPI *pd, int x, int y, LCDColor color) {
+    pd->graphics->fillRect(x * PIXEL_SCALE, y * PIXEL_SCALE, PIXEL_SCALE, PIXEL_SCALE, color);
 }
 
 /* Scanline rasterization - fills horizontal spans between edges */
@@ -231,6 +236,37 @@ static inline void setup_edge(EdgeData* edge, float x1, float y1, float z1,
     edge->z = z1 + edge->dz * prestep;
 }
 
+#define samplepixel(data, x, y, rowbytes) (((data[(y)*rowbytes+(x)/8] & (1 << (uint8_t)(7 - ((x) % 8)))) != 0) ? kColorWhite : kColorBlack)
+
+// Set the pixel at x, y to black.
+#define setpixel(data, x, y, rowbytes) (data[(y)*rowbytes+(x)/8] &= ~(1 << (uint8_t)(7 - ((x) % 8))))
+
+// Set the pixel at x, y to white.
+#define clearpixel(data, x, y, rowbytes) (data[(y)*rowbytes+(x)/8] |= (1 << (uint8_t)(7 - ((x) % 8))))
+
+// Set the pixel at x, y to the specified color.
+#define drawpixel(data, x, y, rowbytes, color) (((color) == kColorBlack) ? setpixel((data), (x), (y), (rowbytes)) : clearpixel((data), (x), (y), (rowbytes)))
+
+void setPixel(PlaydateAPI* pd, int x, int y, int color) {
+
+    // Get direct access to the bitmap data
+    //pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &data);
+    //int display_rowbytes = LCD_ROWSIZE;
+    //pd->system->logToConsole("idx: %i", ((y)*display_rowbytes + (x) / 8));
+    drawpixel(fb_data, x, y, rowbytes, color);
+    //pd->graphics->setPixel(x, y, color);
+    //draw_2x2_block(pd, x, y, color);
+    
+    /*int byte_index = y * rowbytes + (x / 8);
+    int bit_index = 7 - (x % 8);
+    if (color == kColorBlack) {
+        data[byte_index] &= ~(1 << bit_index);
+    }
+    else {
+        data[byte_index] |= (1 << bit_index);
+    }*/
+}
+
 /* Fill a horizontal span with integrated edge drawing */
 static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
     int y, float x_left, float x_right,
@@ -260,22 +296,32 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
     int bayer_y = y & 7;
     int bayer_x = x_start & 7;
 
-    for (int x = x_start; x <= x_end; x++, idx++, bayer_x = (bayer_x + 1) & 7) {
-        if (z > depth_data[idx]) {
-            depth_data[idx] = z;
+    const int edge_width = 2;  /* Change this to adjust edge thickness */
+    const float edge_depth_offset = 0.0001f;  /* Bring edges slightly closer */
 
-            /* Draw edge pixels in black, interior pixels with dithering */
-            int is_edge = (x == x_start && draw_left_edge) ||
-                (x == x_end && draw_right_edge);
+    for (int x = x_start; x <= x_end; x++, idx++, bayer_x = (bayer_x + 1) & 7) {
+        /* Draw outer 2 pixels on each edge in black */
+        int dist_from_left = x - x_start;
+        int dist_from_right = x_end - x;
+
+        int is_left_edge = (dist_from_left < edge_width) && draw_left_edge;
+        int is_right_edge = (dist_from_right < edge_width) && draw_right_edge;
+
+        /* Edges use offset depth to always appear on top */
+        float z_to_test = (is_left_edge || is_right_edge) ?
+            z + edge_depth_offset : z;
+
+        if (z_to_test > depth_data[idx]) {
+            depth_data[idx] = z_to_test;
 
             int color;
-            if (is_edge) {
+            if (is_left_edge || is_right_edge) {
                 color = kColorBlack;
             }
             else {
                 color = (brightness > T->data[bayer_y][bayer_x]) ? kColorWhite : kColorBlack;
             }
-            pd->graphics->setPixel(x, y, color);
+            setPixel(pd, x, y, color);
         }
         z += dz;
     }
@@ -317,13 +363,19 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         float e2y = view_pos3[1] - view_pos1[1];
         float e2z = view_pos3[2] - view_pos1[2];
 
-        float cross_z = e1x * e2y - e1y * e2x;
-        if (cross_z < 0) continue;
+        float view_dir_x = -view_pos1[0];  // Camera at origin
+        float view_dir_y = -view_pos1[1];
+        float view_dir_z = -view_pos1[2];
 
-        /* Lighting */
         float nx = e1y * e2z - e1z * e2y;
         float ny = e1z * e2x - e1x * e2z;
-        float nz = cross_z;
+        float nz = e1x * e2y - e1y * e2x;
+        float facing = nx * view_dir_x + ny * view_dir_y + nz * view_dir_z;
+
+        if (facing < 0) continue;
+
+        /* Lighting */
+        
         float len = sqrtf(nx * nx + ny * ny + nz * nz);
         if (len < 0.001f) continue;
         float brightness = (ny + len) * 0.5f / len;
@@ -383,11 +435,11 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             /* Draw left edge if it's the short edge, right edge if it's the short edge */
             int draw_left = !middle_is_right;  /* short edge on left */
             int draw_right = middle_is_right;   /* short edge on right */
-
+            /* ALWAYS draw both edges - left is always an edge, right is always an edge */
             fill_span(pd, depth_data, T, y,
                 left_edge->x, right_edge->x,
                 left_edge->z, right_edge->z, brightness,
-                draw_left, draw_right);
+                1, 1);  /* Both edges should be drawn */
 
             left_edge->x += left_edge->dx;
             left_edge->z += left_edge->dz;
@@ -403,17 +455,55 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             /* Draw left edge if it's the short edge, right edge if it's the short edge */
             int draw_left = !middle_is_right;  /* short edge on left */
             int draw_right = middle_is_right;   /* short edge on right */
-
+            /* ALWAYS draw both edges - left is always an edge, right is always an edge */
             fill_span(pd, depth_data, T, y,
                 left_edge->x, right_edge->x,
                 left_edge->z, right_edge->z, brightness,
-                draw_left, draw_right);
+                1, 1);  /* Both edges should be drawn */
 
             left_edge->x += left_edge->dx;
             left_edge->z += left_edge->dz;
             right_edge->x += right_edge->dx;
             right_edge->z += right_edge->dz;
         }
+
+        /* Draw top and bottom points explicitly to ensure no gaps */
+        /* Top vertex */
+        if (y_min >= 0 && y_min < SCREEN_HEIGHT) {
+            int x_top = (int)(x1 + 0.5f);
+            if (x_top >= 0 && x_top < SCREEN_WIDTH) {
+                int idx = y_min * SCREEN_WIDTH + x_top;
+                float z_with_offset = z1;
+                if (z_with_offset > depth_data[idx]) {
+                    depth_data[idx] = z_with_offset;
+                    setPixel(pd, x_top, y_min, kColorBlack);
+                }
+            }
+        }
+
+        /* Bottom vertex */
+        if (y_max >= 0 && y_max < SCREEN_HEIGHT) {
+            int x_bottom = (int)(x3 + 0.5f);
+            if (x_bottom >= 0 && x_bottom < SCREEN_WIDTH) {
+                int idx = y_max * SCREEN_WIDTH + x_bottom;
+                float z_with_offset = z3;
+                if (z_with_offset > depth_data[idx]) {
+                    depth_data[idx] = z_with_offset;
+                    setPixel(pd, x_bottom, y_max, kColorBlack);
+                }
+            }
+        }
+
+        /* FALLBACK: If integrated edges still have gaps, draw explicit lines */
+        /* Uncomment these for guaranteed complete edges (slower but reliable) */
+        /*
+        draw_line_z_thick(pd, depth_buffer, (int)x1, (int)y1, z1 + edge_depth_offset,
+                         (int)x2, (int)y2, z2 + edge_depth_offset, kColorBlack, 2);
+        draw_line_z_thick(pd, depth_buffer, (int)x2, (int)y2, z2 + edge_depth_offset,
+                         (int)x3, (int)y3, z3 + edge_depth_offset, kColorBlack, 2);
+        draw_line_z_thick(pd, depth_buffer, (int)x3, (int)y3, z3 + edge_depth_offset,
+                         (int)x1, (int)y1, z1 + edge_depth_offset, kColorBlack, 2);
+        */
     }
 }
 
@@ -549,7 +639,7 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
                     if (iz > depth_data[idx]) {
                         depth_data[idx] = iz;
                         int color = (brightness > T->data[bayer_y_offset][bayer_x]) ? kColorWhite : kColorBlack;
-                        pd->graphics->setPixel(i, j, color);
+                        setPixel(pd, i, j, color);
                     }
                 }
 

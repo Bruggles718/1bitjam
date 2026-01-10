@@ -7,10 +7,16 @@
 #include "Camera.h"
 #include "pd_api.h"
 
-#define SCREEN_WIDTH 400
-#define SCREEN_HEIGHT 240
+#define PIXEL_SCALE 2
 
-#define SHADE_COUNT 6
+#define SCREEN_WIDTH (LCD_COLUMNS / PIXEL_SCALE)
+#define SCREEN_HEIGHT (LCD_ROWS / PIXEL_SCALE)
+
+LCDBitmap* frame_buffer;
+uint8_t* fb_data;
+int rowbytes;
+
+void setPixel(PlaydateAPI* pd, int x, int y, int color);
 
 typedef struct BayerMatrix {
     float** data;
