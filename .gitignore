@@ -1,2 +1,3 @@
-./build/
-./1bitjam.pdx/
+build/**
+1bitjam.pdx/**
+**.dll
