@@ -1,4 +1,4 @@
-//
+﻿//
 //  main.c
 //  Extension
 //
@@ -14,37 +14,6 @@
 #include "SceneObject.h"
 #include "Camera.h"
 #include "WFObjLoader.h"
-
-// make ARM linker shut up about things we aren't using (nosys lib issues):
-void _close(void)
-{
-}
-void _lseek(void)
-{
-
-}
-void _read(void)
-{
-}
-void _write(void)
-{
-}
-void _fstat(void)
-{
-}
-void _getpid(void)
-{
-}
-void _isatty(void)
-{
-}
-void _kill(void)
-{
-}
-void abort(void) {}
-void _exit(void) {}
-void _fini(void) {}
-// end ARM linker warning hack
 
 static int update(void* userdata);
 const char* fontpath = "/System/Fonts/Asheville-Sans-14-Bold.pft";
@@ -103,9 +72,18 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		bayer_matrix = (BayerMatrix*)malloc(sizeof(BayerMatrix));
 		*bayer_matrix = bayer_matrix_create(512);
 
+<<<<<<< Updated upstream
 		frame_buffer = pd->graphics->newBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, kColorWhite);
 		int width, height;
 		pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &fb_data);
+=======
+
+		pd->system->setPeripheralsEnabled(kAccelerometer);
+
+
+
+
+>>>>>>> Stashed changes
 
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(update, pd);
@@ -133,8 +111,61 @@ void reset_depth_buffer()
     }
 }
 
+<<<<<<< Updated upstream
 double total = 0;
 double count = 0;
+=======
+
+float smoothed_ax = 0;
+float smoothed_ay = 0; 
+float smoothed_az = 0;
+
+void get_orientation_from_input(PlaydateAPI* pd, versor out_q)
+{
+	float ax, ay, az;
+	pd->system->getAccelerometer(&ax, &ay, &az);
+
+	// TODO: lowpass filter accelerometer for smoothing
+	/// LOWPASS FILTER FOR ACCELEROMETER SMOOTHING
+	const float coef = 0.1f; //smoothing coefficient
+
+	smoothed_ax = smoothed_ax + coef * (ax - smoothed_ax); 
+	smoothed_ay = smoothed_ay + coef * (ay - smoothed_ay);
+	smoothed_az = smoothed_az + coef * (az - smoothed_az);
+
+	// Compute our pitch & roll from accelerometer
+	float acc_pitch = 4 * atan2f(ay, az);
+	float acc_roll = 0.25 * atan2f(-ax, sqrtf(ay * ay + az * az)); 
+
+	//values where our new pitch and roll will go
+	float pitch, roll;
+
+	//TODO: Make behavior good
+	pitch = acc_pitch;
+	roll = acc_roll;
+
+
+	// Crank → yaw
+	float crank = pd->system->getCrankAngle();
+	float yaw = glm_rad(crank);
+
+	pd->system->logToConsole("PITCH:%d\nROLL:%d\nYAW%d\n", pitch, roll, yaw);
+
+	// Build quaternions
+	versor q_pitch, q_roll, q_yaw, temp, q_final;
+
+	glm_quatv(q_pitch, pitch, (vec3) { 1, 0, 0 });
+	glm_quatv(q_roll, roll, (vec3) { 0, 0, 1 });
+	glm_quatv(q_yaw, yaw, (vec3) { 0, 1, 0 });
+
+	// Combine yaw * pitch * roll
+	glm_quat_mul(q_roll, q_pitch, temp);
+	glm_quat_mul(temp, q_yaw, q_final);
+
+	glm_quat_normalize_to(q_final, out_q);
+}
+
+>>>>>>> Stashed changes
 
 static int update(void* userdata)
 {
@@ -146,12 +177,20 @@ static int update(void* userdata)
 	//pd->graphics->clear(kColorWhite);
 	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
+<<<<<<< Updated upstream
 	vec3 y_axis = {0.0f, 1.0f, 0.0f};
 	vec3 x_axis = {1.0f, 0.0f, 0.0f};
 	scene_object_rotate(scene_object, 1.0f, y_axis);
 	scene_object_rotate(scene_object, 1.0f, x_axis);
 	scene_object_rotate(scene_object2, 1.0f, y_axis);
 	scene_object_rotate(scene_object2, 1.0f, x_axis);
+=======
+	versor q;
+	get_orientation_from_input(pd, q); 
+
+	scene_object_set_rotation(scene_object, q);
+
+>>>>>>> Stashed changes
 	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
 	scene_object_draw(scene_object2, camera, pd, depth_buffer, bayer_matrix);
 	pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
@@ -161,3 +200,7 @@ static int update(void* userdata)
 
 	return 1;
 }
+
+
+
+
