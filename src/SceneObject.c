@@ -291,6 +291,7 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
                 }
             }
         }
+        //pd->graphics->fillTriangle(clip1[0], clip1[1], clip2[0], clip2[1], clip3[0], clip3[1], kColorBlack);
         
         /* Draw triangle edges */
         draw_line_z_thick(pd, depth_buffer, (int)clip1[0], (int)clip1[1], iz0,

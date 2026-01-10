@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <windows.h>
 
 #include "pd_api.h"
 #include "SceneObject.h"
@@ -120,9 +122,15 @@ void reset_depth_buffer()
     }
 }
 
+double total = 0;
+double count = 0;
+
 static int update(void* userdata)
 {
-
+	double cpu_time_used;
+	LARGE_INTEGER frequency, start, end;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
 	reset_depth_buffer();
 	PlaydateAPI* pd = userdata;
 	// pd->system->logToConsole("db val: %f", VECTOR_GET_AS(float, depth_buffer, 0));
@@ -134,9 +142,13 @@ static int update(void* userdata)
 	scene_object_rotate(scene_object, 1.0f, y_axis);
 	scene_object_rotate(scene_object, 1.0f, x_axis);
 	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
-
-        
 	pd->system->drawFPS(0,0);
+	QueryPerformanceCounter(&end);
+	double elapsed_time_us = (double)(end.QuadPart - start.QuadPart) * 1000000.0 / frequency.QuadPart;
+	total += elapsed_time_us;
+	count += 1;
+	double real_elapsed = total / count;
+	pd->system->logToConsole("Total CPU time used: %f microseconds\n", real_elapsed);
 
 	return 1;
 }
