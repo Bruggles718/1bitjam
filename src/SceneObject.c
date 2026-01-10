@@ -115,6 +115,7 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
                                int x0, int y0, float iz0,
                                int x1, int y1, float iz1,
                                uint8_t color, int thickness) {
+    if (thickness == 0) return;
     int dx = abs_int(x1 - x0);
     int dy = abs_int(y1 - y0);
     int sx = x0 < x1 ? 1 : -1;
@@ -141,7 +142,8 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
                 float depth_val = VECTOR_GET_AS(float, depth_buffer, idx);
                 if (iz > depth_val) {
                     depth_val = iz;
-                    pd->graphics->setPixel(px, py, color);
+                    //pd->graphics->setPixel(px, py, color);
+                    setPixel(pd, px, py, color);
                 }
             }
         }
@@ -173,134 +175,490 @@ void vertex_data_add_to_vertex_buffer(SimpleVertexData* vd, float value) {
     vector_push_back(&vd->m_vertex_buffer, &value);
 }
 
-void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view,
-                      mat4 projection, Vector* depth_buffer, BayerMatrix *T) {
+void draw_2x2_block(PlaydateAPI *pd, int x, int y, LCDColor color) {
+    pd->graphics->fillRect(x * PIXEL_SCALE, y * PIXEL_SCALE, PIXEL_SCALE, PIXEL_SCALE, color);
+}
+
+/* Scanline rasterization - fills horizontal spans between edges */
+
+typedef struct {
+    float x;           /* Current x position */
+    float dx;          /* x increment per scanline */
+    float z;           /* Current z (inverse depth) */
+    float dz;          /* z increment per scanline */
+    int y_start;       /* Starting scanline */
+    int y_end;         /* Ending scanline */
+} EdgeData;
+
+/* Sort vertices by Y coordinate */
+static inline void sort_vertices_by_y(float* v1x, float* v1y, float* v1z,
+    float* v2x, float* v2y, float* v2z,
+    float* v3x, float* v3y, float* v3z) {
+    /* Bubble sort is fine for 3 elements */
+    if (*v1y > *v2y) {
+        float tx = *v1x, ty = *v1y, tz = *v1z;
+        *v1x = *v2x; *v1y = *v2y; *v1z = *v2z;
+        *v2x = tx; *v2y = ty; *v2z = tz;
+    }
+    if (*v2y > *v3y) {
+        float tx = *v2x, ty = *v2y, tz = *v2z;
+        *v2x = *v3x; *v2y = *v3y; *v2z = *v3z;
+        *v3x = tx; *v3y = ty; *v3z = tz;
+    }
+    if (*v1y > *v2y) {
+        float tx = *v1x, ty = *v1y, tz = *v1z;
+        *v1x = *v2x; *v1y = *v2y; *v1z = *v2z;
+        *v2x = tx; *v2y = ty; *v2z = tz;
+    }
+}
+
+/* Initialize edge data */
+static inline void setup_edge(EdgeData* edge, float x1, float y1, float z1,
+    float x2, float y2, float z2) {
+    edge->y_start = (int)ceilf(y1);
+    edge->y_end = (int)ceilf(y2);
+
+    float dy = y2 - y1;
+    if (fabsf(dy) < 0.001f) {
+        edge->dx = 0;
+        edge->dz = 0;
+        edge->x = x1;
+        edge->z = z1;
+        return;
+    }
+
+    edge->dx = (x2 - x1) / dy;
+    edge->dz = (z2 - z1) / dy;
+
+    /* Prestep to first scanline center */
+    float prestep = edge->y_start - y1;
+    edge->x = x1 + edge->dx * prestep;
+    edge->z = z1 + edge->dz * prestep;
+}
+
+#define samplepixel(data, x, y, rowbytes) (((data[(y)*rowbytes+(x)/8] & (1 << (uint8_t)(7 - ((x) % 8)))) != 0) ? kColorWhite : kColorBlack)
+
+// Set the pixel at x, y to black.
+#define setpixel(data, x, y, rowbytes) (data[(y)*rowbytes+(x)/8] &= ~(1 << (uint8_t)(7 - ((x) % 8))))
+
+// Set the pixel at x, y to white.
+#define clearpixel(data, x, y, rowbytes) (data[(y)*rowbytes+(x)/8] |= (1 << (uint8_t)(7 - ((x) % 8))))
+
+// Set the pixel at x, y to the specified color.
+#define drawpixel(data, x, y, rowbytes, color) (((color) == kColorBlack) ? setpixel((data), (x), (y), (rowbytes)) : clearpixel((data), (x), (y), (rowbytes)))
+
+void setPixel(PlaydateAPI* pd, int x, int y, int color) {
+
+    // Get direct access to the bitmap data
+    //pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &data);
+    //int display_rowbytes = LCD_ROWSIZE;
+    //pd->system->logToConsole("idx: %i", ((y)*display_rowbytes + (x) / 8));
+    drawpixel(fb_data, x, y, rowbytes, color);
+    //pd->graphics->setPixel(x, y, color);
+    //draw_2x2_block(pd, x, y, color);
+    
+    /*int byte_index = y * rowbytes + (x / 8);
+    int bit_index = 7 - (x % 8);
+    if (color == kColorBlack) {
+        data[byte_index] &= ~(1 << bit_index);
+    }
+    else {
+        data[byte_index] |= (1 << bit_index);
+    }*/
+}
+
+/* Fill a horizontal span with integrated edge drawing */
+static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
+    int y, float x_left, float x_right,
+    float z_left, float z_right, float brightness,
+    int draw_left_edge, int draw_right_edge) {
+    if (x_left > x_right) {
+        float tmp = x_left; x_left = x_right; x_right = tmp;
+        tmp = z_left; z_left = z_right; z_right = tmp;
+        int tmp_edge = draw_left_edge;
+        draw_left_edge = draw_right_edge;
+        draw_right_edge = tmp_edge;
+    }
+
+    int x_start = max_int(0, (int)ceilf(x_left));
+    int x_end = min_int(SCREEN_WIDTH - 1, (int)floorf(x_right));
+
+    if (x_start > x_end) return;
+
+    float span_width = x_right - x_left;
+    if (fabsf(span_width) < 0.001f) return;
+
+    float dz = (z_right - z_left) / span_width;
+    float prestep = x_start - x_left;
+    float z = z_left + dz * prestep;
+
+    int idx = y * SCREEN_WIDTH + x_start;
+    int bayer_y = y & 7;
+    int bayer_x = x_start & 7;
+
+    const int edge_width = 2;  /* Change this to adjust edge thickness */
+    const float edge_depth_offset = 0.0001f;  /* Bring edges slightly closer */
+
+    for (int x = x_start; x <= x_end; x++, idx++, bayer_x = (bayer_x + 1) & 7) {
+        /* Draw outer 2 pixels on each edge in black */
+        int dist_from_left = x - x_start;
+        int dist_from_right = x_end - x;
+
+        int is_left_edge = (dist_from_left < edge_width) && draw_left_edge;
+        int is_right_edge = (dist_from_right < edge_width) && draw_right_edge;
+
+        /* Edges use offset depth to always appear on top */
+        float z_to_test = (is_left_edge || is_right_edge) ?
+            z + edge_depth_offset : z;
+
+        if (z_to_test > depth_data[idx]) {
+            depth_data[idx] = z_to_test;
+
+            int color;
+            if (is_left_edge || is_right_edge) {
+                color = kColorBlack;
+            }
+            else {
+                color = (brightness > T->data[bayer_y][bayer_x]) ? kColorWhite : kColorBlack;
+            }
+            setPixel(pd, x, y, color);
+        }
+        z += dz;
+    }
+}
+
+void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view,
+    mat4 projection, Vector* depth_buffer, BayerMatrix* T) {
     if (!vd) return;
-    
-    //pd->system->logToConsole("Drawing VertexData with %zu floats", vd->m_vertex_buffer.size);
-    
-    mat4 mv;
+
+    mat4 mv, mvp;
     glm_mat4_mul(view, model, mv);
-    
-    /* Process triangles (9 floats per triangle: 3 vertices * 3 coords) */
-    for (size_t i = 0; i < vd->m_vertex_buffer.size; i += 9) {
-        float* buf = (float*)vd->m_vertex_buffer.data;
-        float x1 = buf[i], y1 = buf[i+1], z1 = buf[i+2];
-        float x2 = buf[i+3], y2 = buf[i+4], z2 = buf[i+5];
-        float x3 = buf[i+6], y3 = buf[i+7], z3 = buf[i+8];
-        //pd->system->logToConsole("verts: %f, %f, %f, %f, %f, %f, %f, %f, %f", x1, y1, z1, x2, y2, z2, x3, y3, z3);
-        
-        vec4 pos1 = {x1, y1, z1, 1.0f};
-        vec4 pos2 = {x2, y2, z2, 1.0f};
-        vec4 pos3 = {x3, y3, z3, 1.0f};
-        
+    glm_mat4_mul(projection, mv, mvp);
+
+    float* buf = (float*)vd->m_vertex_buffer.data;
+    size_t buf_size = vd->m_vertex_buffer.size;
+    float* depth_data = (float*)depth_buffer->data;
+
+    const float hw = SCREEN_WIDTH * 0.5f;
+    const float hh = SCREEN_HEIGHT * 0.5f;
+
+    for (size_t i = 0; i < buf_size; i += 9) {
+        vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
+        vec4 pos2 = { buf[i + 3], buf[i + 4], buf[i + 5], 1.0f };
+        vec4 pos3 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+
         vec4 view_pos1, view_pos2, view_pos3;
         glm_mat4_mulv(mv, pos1, view_pos1);
         glm_mat4_mulv(mv, pos2, view_pos2);
         glm_mat4_mulv(mv, pos3, view_pos3);
-        
+
+        /* Z-clip */
+        if (view_pos1[2] >= 0 && view_pos2[2] >= 0 && view_pos3[2] >= 0) continue;
+
         /* Backface culling */
-        vec3 edge1 = {view_pos2[0] - view_pos1[0], view_pos2[1] - view_pos1[1], view_pos2[2] - view_pos1[2]};
-        vec3 edge2 = {view_pos3[0] - view_pos1[0], view_pos3[1] - view_pos1[1], view_pos3[2] - view_pos1[2]};
-        vec3 cross_result;
-        glm_vec3_cross(edge1, edge2, cross_result);
-        if (cross_result[2] < 0) continue;
+        float e1x = view_pos2[0] - view_pos1[0];
+        float e1y = view_pos2[1] - view_pos1[1];
+        float e1z = view_pos2[2] - view_pos1[2];
+        float e2x = view_pos3[0] - view_pos1[0];
+        float e2y = view_pos3[1] - view_pos1[1];
+        float e2z = view_pos3[2] - view_pos1[2];
 
-        if (view_pos1[2] >= 0 &&
-            view_pos2[2] >= 0 &&
-            view_pos3[2] >= 0)
-        {
-            continue; // Entire triangle behind camera
+        float view_dir_x = -view_pos1[0];  // Camera at origin
+        float view_dir_y = -view_pos1[1];
+        float view_dir_z = -view_pos1[2];
+
+        float nx = e1y * e2z - e1z * e2y;
+        float ny = e1z * e2x - e1x * e2z;
+        float nz = e1x * e2y - e1y * e2x;
+        float facing = nx * view_dir_x + ny * view_dir_y + nz * view_dir_z;
+
+        if (facing < 0) continue;
+
+        /* Lighting */
+        
+        float len = sqrtf(nx * nx + ny * ny + nz * nz);
+        if (len < 0.001f) continue;
+        float brightness = (ny + len) * 0.5f / len;
+
+        /* Project to screen space */
+        vec4 clip1, clip2, clip3;
+        glm_mat4_mulv(mvp, pos1, clip1);
+        glm_mat4_mulv(mvp, pos2, clip2);
+        glm_mat4_mulv(mvp, pos3, clip3);
+
+        float inv_w1 = 1.0f / clip1[3];
+        float inv_w2 = 1.0f / clip2[3];
+        float inv_w3 = 1.0f / clip3[3];
+
+        float x1 = (clip1[0] * inv_w1 + 1.0f) * hw;
+        float y1 = (1.0f - clip1[1] * inv_w1) * hh;
+        float x2 = (clip2[0] * inv_w2 + 1.0f) * hw;
+        float y2 = (1.0f - clip2[1] * inv_w2) * hh;
+        float x3 = (clip3[0] * inv_w3 + 1.0f) * hw;
+        float y3 = (1.0f - clip3[1] * inv_w3) * hh;
+
+        float z1 = -inv_w1 / view_pos1[2];
+        float z2 = -inv_w2 / view_pos2[2];
+        float z3 = -inv_w3 / view_pos3[2];
+
+        /* Sort vertices by Y coordinate */
+        sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
+
+        /* Clamp to screen bounds */
+        int y_min = max_int(0, (int)ceilf(y1));
+        int y_max = min_int(SCREEN_HEIGHT - 1, (int)floorf(y3));
+
+        if (y_min > y_max) continue;
+
+        /* Check for degenerate triangle */
+        if (fabsf(y3 - y1) < 0.001f) continue;
+
+        /* Setup edges */
+        EdgeData edge_long;   /* v1 to v3 (long edge) */
+        EdgeData edge_short1; /* v1 to v2 (short edge 1) */
+        EdgeData edge_short2; /* v2 to v3 (short edge 2) */
+
+        setup_edge(&edge_long, x1, y1, z1, x3, y3, z3);
+        setup_edge(&edge_short1, x1, y1, z1, x2, y2, z2);
+        setup_edge(&edge_short2, x2, y2, z2, x3, y3, z3);
+
+        /* Determine which side the middle vertex is on */
+        float mid_x_on_long = x1 + (x3 - x1) * (y2 - y1) / (y3 - y1);
+        int middle_is_right = (x2 > mid_x_on_long);
+
+        /* Rasterize top half (v1 to v2) */
+        int y_mid = (int)ceilf(y2);
+        EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
+        EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
+
+        for (int y = y_min; y < y_mid && y <= y_max; y++) {
+            /* Draw left edge if it's the short edge, right edge if it's the short edge */
+            int draw_left = !middle_is_right;  /* short edge on left */
+            int draw_right = middle_is_right;   /* short edge on right */
+            /* ALWAYS draw both edges - left is always an edge, right is always an edge */
+            fill_span(pd, depth_data, T, y,
+                left_edge->x, right_edge->x,
+                left_edge->z, right_edge->z, brightness,
+                1, 1);  /* Both edges should be drawn */
+
+            left_edge->x += left_edge->dx;
+            left_edge->z += left_edge->dz;
+            right_edge->x += right_edge->dx;
+            right_edge->z += right_edge->dz;
         }
-        
-        /* Project to clip space */
-        vec4 clip1_v4, clip2_v4, clip3_v4;
-        glm_mat4_mulv(projection, view_pos1, clip1_v4);
-        glm_mat4_mulv(projection, view_pos2, clip2_v4);
-        glm_mat4_mulv(projection, view_pos3, clip3_v4);
-        
-        /* Perspective divide */
-        vec3 clip1_v3 = {clip1_v4[0]/clip1_v4[3], clip1_v4[1]/clip1_v4[3], clip1_v4[2]/clip1_v4[3]};
-        vec3 clip2_v3 = {clip2_v4[0]/clip2_v4[3], clip2_v4[1]/clip2_v4[3], clip2_v4[2]/clip2_v4[3]};
-        vec3 clip3_v3 = {clip3_v4[0]/clip3_v4[3], clip3_v4[1]/clip3_v4[3], clip3_v4[2]/clip3_v4[3]};
-        
-        /* Screen space coordinates */
-        vec2 clip1 = {(clip1_v3[0] + 1) * SCREEN_WIDTH * 0.5f, (1 - clip1_v3[1]) * SCREEN_HEIGHT * 0.5f};
-        vec2 clip2 = {(clip2_v3[0] + 1) * SCREEN_WIDTH * 0.5f, (1 - clip2_v3[1]) * SCREEN_HEIGHT * 0.5f};
-        vec2 clip3 = {(clip3_v3[0] + 1) * SCREEN_WIDTH * 0.5f, (1 - clip3_v3[1]) * SCREEN_HEIGHT * 0.5f};
-        
-        int line_thickness = 1;
 
-        /* Bounding box */
-        int minX = max_int(0, (int)floorf(min3(clip1[0], clip2[0], clip3[0]) + line_thickness));
-        int maxX = min_int(SCREEN_WIDTH - 1, (int)ceilf(max3(clip1[0], clip2[0], clip3[0]) - line_thickness));
-        int minY = max_int(0, (int)floorf(min3(clip1[1], clip2[1], clip3[1]) + line_thickness));
-        int maxY = min_int(SCREEN_HEIGHT - 1, (int)ceilf(max3(clip1[1], clip2[1], clip3[1]) - line_thickness));
+        /* Rasterize bottom half (v2 to v3) */
+        left_edge = middle_is_right ? &edge_long : &edge_short2;
+        right_edge = middle_is_right ? &edge_short2 : &edge_long;
 
-        //pd->system->logToConsole("bounding box: %i, %i, %i, %i", minX, minY, maxX, maxY);
-        
-        float vz0 = -view_pos1[2];
-        float vz1 = -view_pos2[2];
-        float vz2 = -view_pos3[2];
-        
-        float iz0 = 1.0f / vz0;
-        float iz1 = 1.0f / vz1;
-        float iz2 = 1.0f / vz2;
-        
-        /* Calculate normal for lighting */
-        vec3 normal;
-        glm_vec3_cross(edge1, edge2, normal);
-        
-        vec3 light_dir = {0.0f, 1.0f, 0.0f};
-        float dot = glm_vec3_dot(normal, light_dir);
-        float brightness = (dot + 1.0f) * 0.5f;
-        
-        /* Rasterize triangle */
-        for (int i = minX; i <= maxX; i++) {
-            for (int j = minY; j <= maxY; j++) {
-                float px = i + 0.5f;
-                float py = j + 0.5f;
-                
-                /* Barycentric coordinates */
-                float alpha = ((clip2[1] - clip3[1]) * (px - clip3[0]) +
-                              (clip3[0] - clip2[0]) * (py - clip3[1])) /
-                             ((clip2[1] - clip3[1]) * (clip1[0] - clip3[0]) +
-                              (clip3[0] - clip2[0]) * (clip1[1] - clip3[1]));
-                
-                float beta = ((clip3[1] - clip1[1]) * (px - clip3[0]) +
-                             (clip1[0] - clip3[0]) * (py - clip3[1])) /
-                            ((clip3[1] - clip1[1]) * (clip2[0] - clip3[0]) +
-                             (clip1[0] - clip3[0]) * (clip2[1] - clip3[1]));
-                
-                float gamma = 1.0f - alpha - beta;
-                
-                if (alpha < 0 || beta < 0 || gamma < 0) continue;
-                
-                float iz = alpha * iz0 + beta * iz1 + gamma * iz2;
-                int idx = j * SCREEN_WIDTH + i;
-                
-                /* Depth test */
-                float depth_val = VECTOR_GET_AS(float, depth_buffer, idx);
-                if (iz > depth_val) {
-                    /*depth_val = iz;*/
-                    vector_assign(depth_buffer, idx, &iz);
-                    int y = j - minY;
-                    int x = i - minX;
-                    int color = (brightness > T->data[y][x]) ? kColorWhite : kColorBlack;
-                    pd->graphics->setPixel(i, j, color);
+        for (int y = y_mid; y <= y_max; y++) {
+            /* Draw left edge if it's the short edge, right edge if it's the short edge */
+            int draw_left = !middle_is_right;  /* short edge on left */
+            int draw_right = middle_is_right;   /* short edge on right */
+            /* ALWAYS draw both edges - left is always an edge, right is always an edge */
+            fill_span(pd, depth_data, T, y,
+                left_edge->x, right_edge->x,
+                left_edge->z, right_edge->z, brightness,
+                1, 1);  /* Both edges should be drawn */
+
+            left_edge->x += left_edge->dx;
+            left_edge->z += left_edge->dz;
+            right_edge->x += right_edge->dx;
+            right_edge->z += right_edge->dz;
+        }
+
+        /* Draw top and bottom points explicitly to ensure no gaps */
+        /* Top vertex */
+        if (y_min >= 0 && y_min < SCREEN_HEIGHT) {
+            int x_top = (int)(x1 + 0.5f);
+            if (x_top >= 0 && x_top < SCREEN_WIDTH) {
+                int idx = y_min * SCREEN_WIDTH + x_top;
+                float z_with_offset = z1;
+                if (z_with_offset > depth_data[idx]) {
+                    depth_data[idx] = z_with_offset;
+                    setPixel(pd, x_top, y_min, kColorBlack);
                 }
             }
         }
-        
+
+        /* Bottom vertex */
+        if (y_max >= 0 && y_max < SCREEN_HEIGHT) {
+            int x_bottom = (int)(x3 + 0.5f);
+            if (x_bottom >= 0 && x_bottom < SCREEN_WIDTH) {
+                int idx = y_max * SCREEN_WIDTH + x_bottom;
+                float z_with_offset = z3;
+                if (z_with_offset > depth_data[idx]) {
+                    depth_data[idx] = z_with_offset;
+                    setPixel(pd, x_bottom, y_max, kColorBlack);
+                }
+            }
+        }
+
+        /* FALLBACK: If integrated edges still have gaps, draw explicit lines */
+        /* Uncomment these for guaranteed complete edges (slower but reliable) */
+        /*
+        draw_line_z_thick(pd, depth_buffer, (int)x1, (int)y1, z1 + edge_depth_offset,
+                         (int)x2, (int)y2, z2 + edge_depth_offset, kColorBlack, 2);
+        draw_line_z_thick(pd, depth_buffer, (int)x2, (int)y2, z2 + edge_depth_offset,
+                         (int)x3, (int)y3, z3 + edge_depth_offset, kColorBlack, 2);
+        draw_line_z_thick(pd, depth_buffer, (int)x3, (int)y3, z3 + edge_depth_offset,
+                         (int)x1, (int)y1, z1 + edge_depth_offset, kColorBlack, 2);
+        */
+    }
+}
+
+void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view,
+                      mat4 projection, Vector* depth_buffer, BayerMatrix *T) {
+    if (!vd) return;
+
+    /* Pre-compute combined MVP matrix */
+    mat4 mv, mvp;
+    glm_mat4_mul(view, model, mv);
+    glm_mat4_mul(projection, mv, mvp);
+
+    /* Cache pointer to buffer data */
+    float* buf = (float*)vd->m_vertex_buffer.data;
+    size_t buf_size = vd->m_vertex_buffer.size;
+
+    /* Pre-compute screen transform constants */
+    const float hw = SCREEN_WIDTH * 0.5f;
+    const float hh = SCREEN_HEIGHT * 0.5f;
+    const int screen_w_minus_1 = SCREEN_WIDTH - 1;
+    const int screen_h_minus_1 = SCREEN_HEIGHT - 1;
+    const int line_thickness = 0;
+
+    /* Cache depth buffer data pointer */
+    float* depth_data = (float*)depth_buffer->data;
+
+    /* Light direction (pre-normalized) */
+    const vec3 light_dir = { 0.0f, 1.0f, 0.0f };
+
+    /* Process triangles (9 floats per triangle) */
+    for (size_t i = 0; i < buf_size; i += 9) {
+        /* Load vertices */
+        vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
+        vec4 pos2 = { buf[i + 3], buf[i + 4], buf[i + 5], 1.0f };
+        vec4 pos3 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+
+        /* Transform to view space for backface culling */
+        vec4 view_pos1, view_pos2, view_pos3;
+        glm_mat4_mulv(mv, pos1, view_pos1);
+        glm_mat4_mulv(mv, pos2, view_pos2);
+        glm_mat4_mulv(mv, pos3, view_pos3);
+
+        /* Early z-clip test */
+        if (view_pos1[2] >= 0 && view_pos2[2] >= 0 && view_pos3[2] >= 0) {
+            continue;
+        }
+
+        /* Backface culling (cross product z-component only) */
+        float e1x = view_pos2[0] - view_pos1[0];
+        float e1y = view_pos2[1] - view_pos1[1];
+        float e1z = view_pos2[2] - view_pos1[2];
+        float e2x = view_pos3[0] - view_pos1[0];
+        float e2y = view_pos3[1] - view_pos1[1];
+        float e2z = view_pos3[2] - view_pos1[2];
+
+        float cross_z = e1x * e2y - e1y * e2x;
+        if (cross_z < 0) continue;
+
+        /* Calculate lighting (using already computed edges) */
+        float nx = e1y * e2z - e1z * e2y;
+        float ny = e1z * e2x - e1x * e2z;
+        float nz = e1x * e2y - e1y * e2x;
+        float brightness = (ny + sqrtf(nx * nx + ny * ny + nz * nz)) * 0.5f / sqrtf(nx * nx + ny * ny + nz * nz);
+
+        /* Transform to clip space using MVP */
+        vec4 clip1, clip2, clip3;
+        glm_mat4_mulv(mvp, pos1, clip1);
+        glm_mat4_mulv(mvp, pos2, clip2);
+        glm_mat4_mulv(mvp, pos3, clip3);
+
+        /* Perspective divide and screen transform */
+        float inv_w1 = 1.0f / clip1[3];
+        float inv_w2 = 1.0f / clip2[3];
+        float inv_w3 = 1.0f / clip3[3];
+
+        float sx1 = (clip1[0] * inv_w1 + 1.0f) * hw;
+        float sy1 = (1.0f - clip1[1] * inv_w1) * hh;
+        float sx2 = (clip2[0] * inv_w2 + 1.0f) * hw;
+        float sy2 = (1.0f - clip2[1] * inv_w2) * hh;
+        float sx3 = (clip3[0] * inv_w3 + 1.0f) * hw;
+        float sy3 = (1.0f - clip3[1] * inv_w3) * hh;
+
+        /* Compute inverse depth values */
+        float iz0 = -inv_w1 / view_pos1[2];
+        float iz1 = -inv_w2 / view_pos2[2];
+        float iz2 = -inv_w3 / view_pos3[2];
+
+        /* Bounding box */
+        float min_x = min3(sx1, sx2, sx3);
+        float max_x = max3(sx1, sx2, sx3);
+        float min_y = min3(sy1, sy2, sy3);
+        float max_y = max3(sy1, sy2, sy3);
+
+        int minX = max_int(0, (int)floorf(min_x + line_thickness));
+        int maxX = min_int(screen_w_minus_1, (int)ceilf(max_x - line_thickness));
+        int minY = max_int(0, (int)floorf(min_y + line_thickness));
+        int maxY = min_int(screen_h_minus_1, (int)ceilf(max_y - line_thickness));
+
+        /* Pre-compute barycentric setup */
+        float denom = (sy2 - sy3) * (sx1 - sx3) + (sx3 - sx2) * (sy1 - sy3);
+        if (fabsf(denom) < 1e-6f) continue; /* Degenerate triangle */
+
+        float inv_denom = 1.0f / denom;
+        float a_dx = (sy2 - sy3) * inv_denom;
+        float a_dy = (sx3 - sx2) * inv_denom;
+        float b_dx = (sy3 - sy1) * inv_denom;
+        float b_dy = (sx1 - sx3) * inv_denom;
+
+        /* Barycentric at minX, minY */
+        float px_start = minX + 0.5f;
+        float py_start = minY + 0.5f;
+        float alpha_base = a_dx * (px_start - sx3) + a_dy * (py_start - sy3);
+        float beta_base = b_dx * (px_start - sx3) + b_dy * (py_start - sy3);
+
+        /* Get Bayer threshold offset */
+        int bayer_y_offset = minY % 8;
+        int bayer_x_base = minX % 8;
+
+        /* Rasterize with incremental barycentric */
+        for (int j = minY; j <= maxY; j++) {
+            float alpha = alpha_base;
+            float beta = beta_base;
+            int idx = j * SCREEN_WIDTH + minX;
+            int bayer_x = bayer_x_base;
+
+            for (int i = minX; i <= maxX; i++, idx++, bayer_x = (bayer_x + 1) & 7) {
+                float gamma = 1.0f - alpha - beta;
+
+                if (alpha >= 0 && beta >= 0 && gamma >= 0) {
+                    float iz = alpha * iz0 + beta * iz1 + gamma * iz2;
+
+                    /* Depth test */
+                    if (iz > depth_data[idx]) {
+                        depth_data[idx] = iz;
+                        int color = (brightness > T->data[bayer_y_offset][bayer_x]) ? kColorWhite : kColorBlack;
+                        setPixel(pd, i, j, color);
+                    }
+                }
+
+                alpha += a_dx;
+                beta += b_dx;
+            }
+
+            alpha_base += a_dy;
+            beta_base += b_dy;
+            bayer_y_offset = (bayer_y_offset + 1) & 7;
+        }
+
         /* Draw triangle edges */
-        draw_line_z_thick(pd, depth_buffer, (int)clip1[0], (int)clip1[1], iz0,
-                         (int)clip2[0], (int)clip2[1], iz1, kColorBlack, line_thickness);
-        draw_line_z_thick(pd, depth_buffer, (int)clip2[0], (int)clip2[1], iz1,
-                         (int)clip3[0], (int)clip3[1], iz2, kColorBlack, line_thickness);
-        draw_line_z_thick(pd, depth_buffer, (int)clip3[0], (int)clip3[1], iz2,
-                         (int)clip1[0], (int)clip1[1], iz0, kColorBlack, line_thickness);
-        
-        // bayer_matrix_destroy(&T);
+        draw_line_z_thick(pd, depth_buffer, (int)sx1, (int)sy1, iz0,
+            (int)sx2, (int)sy2, iz1, kColorBlack, line_thickness);
+        draw_line_z_thick(pd, depth_buffer, (int)sx2, (int)sy2, iz1,
+            (int)sx3, (int)sy3, iz2, kColorBlack, line_thickness);
+        draw_line_z_thick(pd, depth_buffer, (int)sx3, (int)sy3, iz2,
+            (int)sx1, (int)sy1, iz0, kColorBlack, line_thickness);
     }
 }
 
@@ -410,7 +768,7 @@ void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd,
                    0.1f, 1000.0f, perspective);
     
     /* Draw */
-    vertex_data_draw(obj->m_vertex_data, pd, model, view, perspective, depth_buffer, T);
+    vertex_data_draw_scanline(obj->m_vertex_data, pd, model, view, perspective, depth_buffer, T);
 }
 
 void scene_object_set_transform(SceneObject* obj, Transform transform) {

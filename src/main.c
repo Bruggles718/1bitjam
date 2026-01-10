@@ -51,6 +51,7 @@ const char* fontpath = "/System/Fonts/Asheville-Sans-14-Bold.pft";
 LCDFont* font = NULL;
 
 SceneObject *scene_object;
+SceneObject* scene_object2;
 Camera *camera;
 Vector* depth_buffer;
 BayerMatrix *bayer_matrix;
@@ -83,16 +84,24 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 
 		scene_object = (SceneObject*)malloc(sizeof(SceneObject));
 		*scene_object = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "icosahedron.obj", pd);
+		scene_object2 = (SceneObject*)malloc(sizeof(SceneObject));
+		*scene_object2 = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "cube.obj", pd);
 		camera = (Camera*)malloc(sizeof(Camera));
 		camera_init(camera);
-		vec3 pos = {0.0, 0.0, 0.0};
+		vec3 pos = {-2.0, 0.0, 0.0};
 		scene_object_set_position(scene_object, pos);
+		vec3 pos2 = { 2.0f, 0.0f, 0.0f };
+		scene_object_set_position(scene_object2, pos2);
 		depth_buffer = (Vector*)malloc(sizeof(Vector));
 		vector_setup(depth_buffer, SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(float));
 		initialize_depth_buffer();
 
 		bayer_matrix = (BayerMatrix*)malloc(sizeof(BayerMatrix));
 		*bayer_matrix = bayer_matrix_create(512);
+
+		frame_buffer = pd->graphics->newBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, kColorWhite);
+		int width, height;
+		pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &fb_data);
 
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(update, pd);
@@ -120,22 +129,30 @@ void reset_depth_buffer()
     }
 }
 
+double total = 0;
+double count = 0;
+
 static int update(void* userdata)
 {
-
+	double cpu_time_used;
 	reset_depth_buffer();
 	PlaydateAPI* pd = userdata;
 	// pd->system->logToConsole("db val: %f", VECTOR_GET_AS(float, depth_buffer, 0));
 	
-	pd->graphics->clear(kColorWhite);
+	//pd->graphics->clear(kColorWhite);
+	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
 	vec3 y_axis = {0.0f, 1.0f, 0.0f};
 	vec3 x_axis = {1.0f, 0.0f, 0.0f};
 	scene_object_rotate(scene_object, 1.0f, y_axis);
 	scene_object_rotate(scene_object, 1.0f, x_axis);
+	scene_object_rotate(scene_object2, 1.0f, y_axis);
+	scene_object_rotate(scene_object2, 1.0f, x_axis);
 	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
-
-        
+	scene_object_draw(scene_object2, camera, pd, depth_buffer, bayer_matrix);
+	pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
+	/*pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
+	pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);*/
 	pd->system->drawFPS(0,0);
 
 	return 1;
