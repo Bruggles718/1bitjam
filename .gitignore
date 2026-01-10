@@ -3,3 +3,4 @@ build/**
 **.dll
 1bitjam_DEVICE.pdx/**
 src/vector.c
+**.elf

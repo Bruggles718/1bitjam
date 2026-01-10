@@ -7,7 +7,7 @@
 #include "Camera.h"
 #include "pd_api.h"
 
-#define PIXEL_SCALE 2
+#define PIXEL_SCALE 1
 
 #define SCREEN_WIDTH (LCD_COLUMNS / PIXEL_SCALE)
 #define SCREEN_HEIGHT (LCD_ROWS / PIXEL_SCALE)
