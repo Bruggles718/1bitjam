@@ -5,6 +5,10 @@
 #include <math.h>
 #include <assert.h>
 
+extern LCDBitmap* frame_buffer;
+extern uint8_t* fb_data;
+extern int rowbytes;
+
 /* ===== Helper Functions ===== */
 
 static inline float edge(float ax, float ay, float bx, float by, float px, float py) {

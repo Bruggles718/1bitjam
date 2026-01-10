@@ -12,10 +12,6 @@
 #define SCREEN_WIDTH (LCD_COLUMNS / PIXEL_SCALE)
 #define SCREEN_HEIGHT (LCD_ROWS / PIXEL_SCALE)
 
-LCDBitmap* frame_buffer;
-uint8_t* fb_data;
-int rowbytes;
-
 void setPixel(PlaydateAPI* pd, int x, int y, int color);
 
 typedef struct BayerMatrix {

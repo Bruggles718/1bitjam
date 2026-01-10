@@ -56,6 +56,10 @@ Camera *camera;
 Vector* depth_buffer;
 BayerMatrix *bayer_matrix;
 
+LCDBitmap* frame_buffer;
+uint8_t* fb_data;
+int rowbytes;
+
 void initialize_depth_buffer() {
 	int size = SCREEN_WIDTH * SCREEN_HEIGHT;
 	for (int i = 0; i < size; i += 1) {
