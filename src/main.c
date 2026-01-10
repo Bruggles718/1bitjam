@@ -72,18 +72,14 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		bayer_matrix = (BayerMatrix*)malloc(sizeof(BayerMatrix));
 		*bayer_matrix = bayer_matrix_create(512);
 
-<<<<<<< Updated upstream
+
 		frame_buffer = pd->graphics->newBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, kColorWhite);
 		int width, height;
 		pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &fb_data);
-=======
 
 		pd->system->setPeripheralsEnabled(kAccelerometer);
 
 
-
-
->>>>>>> Stashed changes
 
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(update, pd);
@@ -111,10 +107,8 @@ void reset_depth_buffer()
     }
 }
 
-<<<<<<< Updated upstream
 double total = 0;
 double count = 0;
-=======
 
 float smoothed_ax = 0;
 float smoothed_ay = 0; 
@@ -165,7 +159,6 @@ void get_orientation_from_input(PlaydateAPI* pd, versor out_q)
 	glm_quat_normalize_to(q_final, out_q);
 }
 
->>>>>>> Stashed changes
 
 static int update(void* userdata)
 {
@@ -177,20 +170,17 @@ static int update(void* userdata)
 	//pd->graphics->clear(kColorWhite);
 	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
-<<<<<<< Updated upstream
 	vec3 y_axis = {0.0f, 1.0f, 0.0f};
 	vec3 x_axis = {1.0f, 0.0f, 0.0f};
 	scene_object_rotate(scene_object, 1.0f, y_axis);
 	scene_object_rotate(scene_object, 1.0f, x_axis);
 	scene_object_rotate(scene_object2, 1.0f, y_axis);
 	scene_object_rotate(scene_object2, 1.0f, x_axis);
-=======
 	versor q;
 	get_orientation_from_input(pd, q); 
 
 	scene_object_set_rotation(scene_object, q);
 
->>>>>>> Stashed changes
 	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
 	scene_object_draw(scene_object2, camera, pd, depth_buffer, bayer_matrix);
 	pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
