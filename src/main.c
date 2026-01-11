@@ -204,17 +204,45 @@ static int update(void* userdata)
 	//pd->graphics->clear(kColorWhite);
 	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
-	vec3 y_axis = { 0.0f, 1.0f, 0.0f };
-	vec3 x_axis = { 1.0f, 0.0f, 0.0f };
-	scene_object_rotate(scene_object, 1.0f, y_axis);
+	vec3 y_axis = {0.0f, 1.0f, 0.0f};
+	vec3 x_axis = {1.0f, 0.0f, 0.0f};
+	/*scene_object_rotate(scene_object, 1.0f, y_axis);
 	scene_object_rotate(scene_object, 1.0f, x_axis);
 	scene_object_rotate(scene_object2, 1.0f, y_axis);
-	scene_object_rotate(scene_object2, 1.0f, x_axis);
+	scene_object_rotate(scene_object2, 1.0f, x_axis);*/
 	versor q;
 	get_orientation_from_input(pd, q);
-
-	scene_object_set_rotation(scene_object, q);
 	camera_set_rotation(camera, q);
+
+	float moveSpeed = 0.1f;
+	vec3 moveVec = { 0.0f, 0.0f, 0.0f };
+	PDButtons current;
+	pd->system->getButtonState(&current, NULL, NULL);
+	if (current & kButtonUp) {
+		moveVec[2] = moveSpeed;
+	}
+	if (current & kButtonDown) {
+		moveVec[2] = -moveSpeed;
+	}
+	if (current & kButtonLeft) {
+		moveVec[0] = -moveSpeed;
+	}
+	if (current & kButtonRight) {
+		moveVec[0] = moveSpeed;
+	}
+	if (current & kButtonA) {
+		moveVec[1] = moveSpeed;
+	}
+	if (current & kButtonB) {
+		moveVec[1] = -moveSpeed;
+	}
+	glm_vec2_normalize(moveVec);
+	camera_move_forward(camera, moveVec[2]);
+	camera_move_right(camera, moveVec[0]);
+	camera_move_up(camera, moveVec[1]);
+
+	//scene_object_set_rotation(scene_object, q);
+	
 
 	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
 	scene_object_draw(scene_object2, camera, pd, depth_buffer, bayer_matrix);
