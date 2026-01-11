@@ -215,7 +215,7 @@ static int update(void* userdata)
 	scene_object_draw(scene_object2, camera, pd, depth_buffer, bayer_matrix);
 	//pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
-	pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);
+	//pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);
 	pd->system->drawFPS(0,0);
 
 	return 1;
