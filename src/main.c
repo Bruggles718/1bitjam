@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 
 #include "pd_api.h"
 #include "SceneObject.h"
@@ -191,22 +192,26 @@ void get_orientation_from_input(PlaydateAPI* pd, versor out_q)
 
 static int update(void* userdata)
 {
+
 	double cpu_time_used;
+	LARGE_INTEGER frequency, start, end;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
 	reset_depth_buffer();
 	PlaydateAPI* pd = userdata;
 	// pd->system->logToConsole("db val: %f", VECTOR_GET_AS(float, depth_buffer, 0));
-	
+
 	//pd->graphics->clear(kColorWhite);
 	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
-	vec3 y_axis = {0.0f, 1.0f, 0.0f};
-	vec3 x_axis = {1.0f, 0.0f, 0.0f};
+	vec3 y_axis = { 0.0f, 1.0f, 0.0f };
+	vec3 x_axis = { 1.0f, 0.0f, 0.0f };
 	scene_object_rotate(scene_object, 1.0f, y_axis);
 	scene_object_rotate(scene_object, 1.0f, x_axis);
 	scene_object_rotate(scene_object2, 1.0f, y_axis);
 	scene_object_rotate(scene_object2, 1.0f, x_axis);
 	versor q;
-	get_orientation_from_input(pd, q); 
+	get_orientation_from_input(pd, q);
 
 	scene_object_set_rotation(scene_object, q);
 	camera_set_rotation(camera, q);
@@ -216,7 +221,13 @@ static int update(void* userdata)
 	//pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
 	//pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);
-	pd->system->drawFPS(0,0);
+	pd->system->drawFPS(0, 0);
+	QueryPerformanceCounter(&end);
+	double elapsed_time_us = (double)(end.QuadPart - start.QuadPart) * 1000000.0 / frequency.QuadPart;
+	total += elapsed_time_us;
+	count += 1;
+	double real_elapsed = total / count;
+	pd->system->logToConsole("Total CPU time used: %f microseconds\n", real_elapsed);
 
 	return 1;
 }
