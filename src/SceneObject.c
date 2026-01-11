@@ -820,3 +820,83 @@ void scene_object_set_specular_strength(SceneObject* obj, float specular_strengt
     if (!obj) return;
     obj->m_specular_strength = specular_strength;
 }
+
+#define vec3_magnitude(x, y, z) sqrtf(x * x + y * y + z * z);
+
+float triangle_area(vec3 world_pos1, vec3 world_pos2, vec3 world_pos3) {
+    float w_e1x = world_pos2[0] - world_pos1[0];
+    float w_e1y = world_pos2[1] - world_pos1[1];
+    float w_e1z = world_pos2[2] - world_pos1[2];
+    float w_e2x = world_pos3[0] - world_pos1[0];
+    float w_e2y = world_pos3[1] - world_pos1[1];
+    float w_e2z = world_pos3[2] - world_pos1[2];
+
+    float nx = w_e1y * w_e2z - w_e1z * w_e2y;
+    float ny = w_e1z * w_e2x - w_e1x * w_e2z;
+    float nz = w_e1x * w_e2y - w_e1y * w_e2x;
+
+    float normal_mag = vec3_magnitude(nx, ny, nz);
+    float full_area = normal_mag / 2;
+}
+
+bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float radius) {
+    if (!obj) return;
+
+    /* Build model matrix */
+    mat4 model;
+    glm_mat4_identity(model);
+    glm_translate(model, obj->m_transform.m_position);
+
+    SimpleVertexData* vd = obj->m_vertex_data;
+    float* buf = (float*)vd->m_vertex_buffer.data;
+    size_t buf_size = vd->m_vertex_buffer.size;
+    for (size_t i = 0; i < buf_size; i += 9) {
+        vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
+        vec4 pos2 = { buf[i + 3], buf[i + 4], buf[i + 5], 1.0f };
+        vec4 pos3 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+
+        vec4 world_pos1, world_pos2, world_pos3;
+        glm_mat4_mulv(model, pos1, world_pos1);
+        glm_mat4_mulv(model, pos2, world_pos2);
+        glm_mat4_mulv(model, pos3, world_pos3);
+
+        /* Calculate normal in world space */
+        float w_e1x = world_pos2[0] - world_pos1[0];
+        float w_e1y = world_pos2[1] - world_pos1[1];
+        float w_e1z = world_pos2[2] - world_pos1[2];
+        float w_e2x = world_pos3[0] - world_pos1[0];
+        float w_e2y = world_pos3[1] - world_pos1[1];
+        float w_e2z = world_pos3[2] - world_pos1[2];
+
+        float nx = w_e1y * w_e2z - w_e1z * w_e2y;
+        float ny = w_e1z * w_e2x - w_e1x * w_e2z;
+        float nz = w_e1x * w_e2y - w_e1y * w_e2x;
+
+        vec3 normal = { nx, ny, nz };
+
+        vec3 relative;
+        glm_vec3_sub(point, pos1, relative);
+        vec3 projection;
+        glm_vec3_proj(relative, normal, projection);
+        float projx = projection[0];
+        float projy = projection[1];
+        float projz = projection[2];
+        float mag = vec3_magnitude(projx, projy, projz);
+        if (mag < radius) {
+            vec3 point_on_plane;
+            glm_vec3_sub(point, projection, point_on_plane);
+
+            float normal_mag = vec3_magnitude(nx, ny, nz);
+            float full_area = normal_mag / 2;
+
+            float a1 = triangle_area(point_on_plane, world_pos1, world_pos2);
+            float a2 = triangle_area(point_on_plane, world_pos2, world_pos3);
+            float a3 = triangle_area(point_on_plane, world_pos3, world_pos1);
+
+            if ((a1 + a2 + a3) <= full_area) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
