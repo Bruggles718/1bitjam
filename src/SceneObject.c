@@ -391,6 +391,10 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         glm_mat4_mulv(mvp, pos2, clip2);
         glm_mat4_mulv(mvp, pos3, clip3);
 
+        if (clip1[3] <= 0.001f || clip2[3] <= 0.001f || clip3[3] <= 0.001f) {
+            continue; // Skip triangles with vertices too close or behind camera
+        }
+
         float inv_w1 = 1.0f / clip1[3];
         float inv_w2 = 1.0f / clip2[3];
         float inv_w3 = 1.0f / clip3[3];
@@ -406,14 +410,24 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         float z2 = -inv_w2 / view_pos2[2];
         float z3 = -inv_w3 / view_pos3[2];
 
+        float min_x = min3(x1, x2, x3);
+        float max_x = max3(x1, x2, x3);
+        float min_y = min3(y1, y2, y3);
+        float max_y = max3(y1, y2, y3);
+
+        if (max_x < 0 || min_x >= SCREEN_WIDTH ||
+            max_y < 0 || min_y >= SCREEN_HEIGHT) {
+            continue;  /* Triangle completely off-screen */
+        }
+
         /* Sort vertices by Y coordinate */
         sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
 
-        /* Clamp to screen bounds */
+        ///* Clamp to screen bounds */
         int y_min = max_int(0, (int)ceilf(y1));
         int y_max = min_int(SCREEN_HEIGHT - 1, (int)floorf(y3));
 
-        if (y_min > y_max) continue;
+        //if (y_min > y_max) continue;
 
         /* Check for degenerate triangle */
         if (fabsf(y3 - y1) < 0.001f) continue;
@@ -423,6 +437,11 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         EdgeData edge_short1; /* v1 to v2 (short edge 1) */
         EdgeData edge_short2; /* v2 to v3 (short edge 2) */
 
+        /* Don't clamp y_min/y_max initially - use original values */
+        int y_top = (int)ceilf(y1);
+        int y_bottom = (int)floorf(y3);
+
+        /* Setup edges with original values */
         setup_edge(&edge_long, x1, y1, z1, x3, y3, z3);
         setup_edge(&edge_short1, x1, y1, z1, x2, y2, z2);
         setup_edge(&edge_short2, x2, y2, z2, x3, y3, z3);
@@ -436,15 +455,17 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
         EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
 
-        for (int y = y_min; y < y_mid && y <= y_max; y++) {
+        for (int y = y_top; y < y_mid; y++) {
             /* Draw left edge if it's the short edge, right edge if it's the short edge */
             int draw_left = !middle_is_right;  /* short edge on left */
             int draw_right = middle_is_right;   /* short edge on right */
             /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-            fill_span(pd, depth_data, T, y,
-                left_edge->x, right_edge->x,
-                left_edge->z, right_edge->z, brightness,
-                1, 1);  /* Both edges should be drawn */
+            if (y >= 0 && y < SCREEN_HEIGHT) {
+                fill_span(pd, depth_data, T, y,
+                    left_edge->x, right_edge->x,
+                    left_edge->z, right_edge->z, brightness,
+                    1, 1);
+            }
 
             left_edge->x += left_edge->dx;
             left_edge->z += left_edge->dz;
@@ -456,15 +477,17 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         left_edge = middle_is_right ? &edge_long : &edge_short2;
         right_edge = middle_is_right ? &edge_short2 : &edge_long;
 
-        for (int y = y_mid; y <= y_max; y++) {
+        for (int y = y_mid; y <= y_bottom; y++) {
             /* Draw left edge if it's the short edge, right edge if it's the short edge */
             int draw_left = !middle_is_right;  /* short edge on left */
             int draw_right = middle_is_right;   /* short edge on right */
             /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-            fill_span(pd, depth_data, T, y,
-                left_edge->x, right_edge->x,
-                left_edge->z, right_edge->z, brightness,
-                1, 1);  /* Both edges should be drawn */
+            if (y >= 0 && y < SCREEN_HEIGHT) {
+                fill_span(pd, depth_data, T, y,
+                    left_edge->x, right_edge->x,
+                    left_edge->z, right_edge->z, brightness,
+                    1, 1);
+            }
 
             left_edge->x += left_edge->dx;
             left_edge->z += left_edge->dz;

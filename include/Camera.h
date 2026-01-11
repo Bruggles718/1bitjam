@@ -14,17 +14,19 @@
 
 typedef struct Camera {
     /* Track the old mouse position */
-    vec2 m_old_mouse_position;
+    //vec2 m_old_mouse_position;
     /* Where is our camera positioned */
     vec3 m_eye_position;
     /* What direction is the camera looking */
-    vec3 m_view_direction;
+    //vec3 m_view_direction;
     /* Which direction is 'up' in our world
      * Generally this is constant, but if you wanted
      * to 'rock' or 'rattle' the camera you might play
      * with modifying this value.
      */
-    vec3 m_up_vector;
+    //vec3 m_up_vector;
+
+    versor m_rotation;
 } Camera;
 
 /* Constructor to create a camera */
@@ -38,6 +40,7 @@ void camera_get_view_matrix(const Camera* camera, mat4 out);
 
 /* Move the camera around */
 void camera_mouse_look(Camera* camera, int mouse_x, int mouse_y);
+
 void camera_move_forward(Camera* camera, float speed);
 void camera_move_backward(Camera* camera, float speed);
 void camera_move_left(Camera* camera, float speed);
@@ -65,5 +68,9 @@ float camera_get_view_y_direction(const Camera* camera);
 
 /* Returns the Z 'view' direction */
 float camera_get_view_z_direction(const Camera* camera);
+
+void camera_set_rotation(Camera* camera, versor rotation);
+
+void camera_rotate(Camera* camera, float angle_degrees, vec3 axis);
 
 #endif /* CAMERA_H */

@@ -209,6 +209,7 @@ static int update(void* userdata)
 	get_orientation_from_input(pd, q); 
 
 	scene_object_set_rotation(scene_object, q);
+	camera_set_rotation(camera, q);
 
 	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
 	scene_object_draw(scene_object2, camera, pd, depth_buffer, bayer_matrix);
