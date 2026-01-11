@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
 
 #include "pd_api.h"
 #include "SceneObject.h"
@@ -192,11 +191,6 @@ void get_orientation_from_input(PlaydateAPI* pd, versor out_q)
 
 static int update(void* userdata)
 {
-
-	double cpu_time_used;
-	LARGE_INTEGER frequency, start, end;
-	QueryPerformanceFrequency(&frequency);
-	QueryPerformanceCounter(&start);
 	reset_depth_buffer();
 	PlaydateAPI* pd = userdata;
 	// pd->system->logToConsole("db val: %f", VECTOR_GET_AS(float, depth_buffer, 0));
@@ -242,7 +236,6 @@ static int update(void* userdata)
 	camera_move_up(camera, moveVec[1]);
 
 	//scene_object_set_rotation(scene_object, q);
-	
 
 	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
 	scene_object_draw(scene_object2, camera, pd, depth_buffer, bayer_matrix);
@@ -250,12 +243,6 @@ static int update(void* userdata)
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
 	//pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);
 	pd->system->drawFPS(0, 0);
-	QueryPerformanceCounter(&end);
-	double elapsed_time_us = (double)(end.QuadPart - start.QuadPart) * 1000000.0 / frequency.QuadPart;
-	total += elapsed_time_us;
-	count += 1;
-	double real_elapsed = total / count;
-	pd->system->logToConsole("Total CPU time used: %f microseconds\n", real_elapsed);
 
 	return 1;
 }
