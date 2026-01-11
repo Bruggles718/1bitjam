@@ -257,6 +257,7 @@ void setPixel(PlaydateAPI* pd, int x, int y, int color) {
     //pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &data);
     //int display_rowbytes = LCD_ROWSIZE;
     //pd->system->logToConsole("idx: %i", ((y)*display_rowbytes + (x) / 8));
+    if (x >= SCREEN_WIDTH || x < 0 || y > SCREEN_HEIGHT || y < 0) return;
     drawpixel(fb_data, x, y, rowbytes, color);
     //pd->graphics->setPixel(x, y, color);
     //draw_2x2_block(pd, x, y, color);
@@ -314,7 +315,7 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
         /* Edges use offset depth to always appear on top */
         float z_to_test = (is_left_edge || is_right_edge) ?
             z + edge_depth_offset : z;
-
+        if (idx < 0 || idx >= SCREEN_WIDTH * SCREEN_HEIGHT) continue;
         if (z_to_test > depth_data[idx]) {
             depth_data[idx] = z_to_test;
 
