@@ -445,12 +445,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         /* Sort vertices by Y coordinate */
         sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
 
-        ///* Clamp to screen bounds */
-        int y_min = max_int(0, (int)ceilf(y1));
-        int y_max = min_int(SCREEN_HEIGHT - 1, (int)floorf(y3));
-
-        //if (y_min > y_max) continue;
-
         /* Check for degenerate triangle */
         if (fabsf(y3 - y1) < 0.001f) continue;
 
@@ -516,44 +510,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             right_edge->x += right_edge->dx;
             right_edge->z += right_edge->dz;
         }
-
-        /* Draw top and bottom points explicitly to ensure no gaps */
-        /* Top vertex */
-        if (y_min >= 0 && y_min < SCREEN_HEIGHT) {
-            int x_top = (int)(x1 + 0.5f);
-            if (x_top >= 0 && x_top < SCREEN_WIDTH) {
-                int idx = y_min * SCREEN_WIDTH + x_top;
-                float z_with_offset = z1;
-                if (z_with_offset > depth_data[idx]) {
-                    depth_data[idx] = z_with_offset;
-                    setPixel(pd, x_top, y_min, kColorBlack);
-                }
-            }
-        }
-
-        /* Bottom vertex */
-        if (y_max >= 0 && y_max < SCREEN_HEIGHT) {
-            int x_bottom = (int)(x3 + 0.5f);
-            if (x_bottom >= 0 && x_bottom < SCREEN_WIDTH) {
-                int idx = y_max * SCREEN_WIDTH + x_bottom;
-                float z_with_offset = z3;
-                if (z_with_offset > depth_data[idx]) {
-                    depth_data[idx] = z_with_offset;
-                    setPixel(pd, x_bottom, y_max, kColorBlack);
-                }
-            }
-        }
-
-        /* FALLBACK: If integrated edges still have gaps, draw explicit lines */
-        /* Uncomment these for guaranteed complete edges (slower but reliable) */
-        /*
-        draw_line_z_thick(pd, depth_buffer, (int)x1, (int)y1, z1 + edge_depth_offset,
-                         (int)x2, (int)y2, z2 + edge_depth_offset, kColorBlack, 2);
-        draw_line_z_thick(pd, depth_buffer, (int)x2, (int)y2, z2 + edge_depth_offset,
-                         (int)x3, (int)y3, z3 + edge_depth_offset, kColorBlack, 2);
-        draw_line_z_thick(pd, depth_buffer, (int)x3, (int)y3, z3 + edge_depth_offset,
-                         (int)x1, (int)y1, z1 + edge_depth_offset, kColorBlack, 2);
-        */
     }
 }
 
@@ -863,4 +819,84 @@ void scene_object_set_diffuse_color(SceneObject* obj, vec3 diffuse_color) {
 void scene_object_set_specular_strength(SceneObject* obj, float specular_strength) {
     if (!obj) return;
     obj->m_specular_strength = specular_strength;
+}
+
+#define vec3_magnitude(x, y, z) sqrtf(x * x + y * y + z * z);
+
+float triangle_area(vec3 world_pos1, vec3 world_pos2, vec3 world_pos3) {
+    float w_e1x = world_pos2[0] - world_pos1[0];
+    float w_e1y = world_pos2[1] - world_pos1[1];
+    float w_e1z = world_pos2[2] - world_pos1[2];
+    float w_e2x = world_pos3[0] - world_pos1[0];
+    float w_e2y = world_pos3[1] - world_pos1[1];
+    float w_e2z = world_pos3[2] - world_pos1[2];
+
+    float nx = w_e1y * w_e2z - w_e1z * w_e2y;
+    float ny = w_e1z * w_e2x - w_e1x * w_e2z;
+    float nz = w_e1x * w_e2y - w_e1y * w_e2x;
+
+    float normal_mag = vec3_magnitude(nx, ny, nz);
+    float full_area = normal_mag / 2;
+}
+
+bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float radius) {
+    if (!obj) return;
+
+    /* Build model matrix */
+    mat4 model;
+    glm_mat4_identity(model);
+    glm_translate(model, obj->m_transform.m_position);
+
+    SimpleVertexData* vd = obj->m_vertex_data;
+    float* buf = (float*)vd->m_vertex_buffer.data;
+    size_t buf_size = vd->m_vertex_buffer.size;
+    for (size_t i = 0; i < buf_size; i += 9) {
+        vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
+        vec4 pos2 = { buf[i + 3], buf[i + 4], buf[i + 5], 1.0f };
+        vec4 pos3 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+
+        vec4 world_pos1, world_pos2, world_pos3;
+        glm_mat4_mulv(model, pos1, world_pos1);
+        glm_mat4_mulv(model, pos2, world_pos2);
+        glm_mat4_mulv(model, pos3, world_pos3);
+
+        /* Calculate normal in world space */
+        float w_e1x = world_pos2[0] - world_pos1[0];
+        float w_e1y = world_pos2[1] - world_pos1[1];
+        float w_e1z = world_pos2[2] - world_pos1[2];
+        float w_e2x = world_pos3[0] - world_pos1[0];
+        float w_e2y = world_pos3[1] - world_pos1[1];
+        float w_e2z = world_pos3[2] - world_pos1[2];
+
+        float nx = w_e1y * w_e2z - w_e1z * w_e2y;
+        float ny = w_e1z * w_e2x - w_e1x * w_e2z;
+        float nz = w_e1x * w_e2y - w_e1y * w_e2x;
+
+        vec3 normal = { nx, ny, nz };
+
+        vec3 relative;
+        glm_vec3_sub(point, pos1, relative);
+        vec3 projection;
+        glm_vec3_proj(relative, normal, projection);
+        float projx = projection[0];
+        float projy = projection[1];
+        float projz = projection[2];
+        float mag = vec3_magnitude(projx, projy, projz);
+        if (mag < radius) {
+            vec3 point_on_plane;
+            glm_vec3_sub(point, projection, point_on_plane);
+
+            float normal_mag = vec3_magnitude(nx, ny, nz);
+            float full_area = normal_mag / 2;
+
+            float a1 = triangle_area(point_on_plane, world_pos1, world_pos2);
+            float a2 = triangle_area(point_on_plane, world_pos2, world_pos3);
+            float a3 = triangle_area(point_on_plane, world_pos3, world_pos1);
+
+            if ((a1 + a2 + a3) <= full_area) {
+                return true;
+            }
+        }
+    }
+    return false;
 }

@@ -374,12 +374,12 @@ int iterator_erase(Vector* vector, Iterator* iterator) {
 
 void iterator_increment(Iterator* iterator) {
 	assert(iterator != NULL);
-	(char*)iterator->pointer += iterator->element_size;
+	iterator->pointer = (char*)iterator->pointer + iterator->element_size;
 }
 
 void iterator_decrement(Iterator* iterator) {
 	assert(iterator != NULL);
-	(char*)iterator->pointer -= iterator->element_size;
+	iterator->pointer = (char*)iterator->pointer - iterator->element_size;
 }
 
 void* iterator_next(Iterator* iterator) {
@@ -414,7 +414,7 @@ bool iterator_is_after(Iterator* first, Iterator* second) {
 size_t iterator_index(Vector* vector, Iterator* iterator) {
 	assert(vector != NULL);
 	assert(iterator != NULL);
-	return ((char*)iterator->pointer - vector->data) / vector->element_size;
+	return ((char*)iterator->pointer - (char*)vector->data) / vector->element_size;
 }
 
 /***** PRIVATE *****/
