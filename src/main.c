@@ -182,8 +182,8 @@ void get_orientation_from_input(PlaydateAPI* pd, versor out_q)
 	glm_quatv(q_yaw, yaw, (vec3) { 0, 1, 0 });
 
 	// Combine yaw * pitch * roll
-	glm_quat_mul(q_roll, q_pitch, temp);
-	glm_quat_mul(temp, q_yaw, q_final);
+	glm_quat_mul(q_yaw, q_pitch, temp);
+	glm_quat_mul(temp, q_roll, q_final);
 
 	glm_quat_normalize_to(q_final, out_q);
 }
