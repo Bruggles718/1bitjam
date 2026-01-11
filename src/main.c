@@ -85,9 +85,9 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		wfobjloader_init(&wf_obj_loader);
 
 		scene_object = (SceneObject*)malloc(sizeof(SceneObject));
-		*scene_object = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "icosahedron.obj", pd);
+		*scene_object = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "beetle.obj", pd);
 		scene_object2 = (SceneObject*)malloc(sizeof(SceneObject));
-		*scene_object2 = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "cube.obj", pd);
+		*scene_object2 = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "icosahedron.obj", pd);
 		camera = (Camera*)malloc(sizeof(Camera));
 		camera_init(camera);
 		vec3 pos = {-2.0, 0.0, 0.0};
