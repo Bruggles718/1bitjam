@@ -821,7 +821,9 @@ void scene_object_set_specular_strength(SceneObject* obj, float specular_strengt
     obj->m_specular_strength = specular_strength;
 }
 
-#define vec3_magnitude(x, y, z) sqrtf(x * x + y * y + z * z);
+#define vec3_mag_sqr(x, y, z) (x * x + y * y + z * z)
+#define vec3_magnitude(x, y, z) sqrtf(vec3_mag_sqr(x, y, z))
+
 
 float triangle_area(vec3 world_pos1, vec3 world_pos2, vec3 world_pos3) {
     float w_e1x = world_pos2[0] - world_pos1[0];
@@ -840,7 +842,7 @@ float triangle_area(vec3 world_pos1, vec3 world_pos2, vec3 world_pos3) {
 }
 
 bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float radius) {
-    if (!obj) return;
+    if (!obj) return false;
 
     /* Build model matrix */
     mat4 model;
@@ -876,24 +878,34 @@ bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float radiu
 
         vec3 relative;
         glm_vec3_sub(point, pos1, relative);
-        vec3 projection;
-        glm_vec3_proj(relative, normal, projection);
-        float projx = projection[0];
-        float projy = projection[1];
-        float projz = projection[2];
-        float mag = vec3_magnitude(projx, projy, projz);
-        if (mag < radius) {
+        float dot = relative[0] * nx + relative[1] * ny + relative[2] * nz;
+        float norm_sq = nx * nx + ny * ny + nz * nz;
+        float scale = dot / norm_sq;
+        float projx = nx * scale;
+        float projy = ny * scale;
+        float projz = nz * scale;
+        vec3 projection = { projx, projy, projz };
+        float mag = vec3_mag_sqr(projx, projy, projz);
+        if (mag < (radius * radius)) {
             vec3 point_on_plane;
             glm_vec3_sub(point, projection, point_on_plane);
 
-            float normal_mag = vec3_magnitude(nx, ny, nz);
-            float full_area = normal_mag / 2;
+            vec3 v0, v1, v2;
+            glm_vec3_sub(world_pos2, world_pos1, v0);
+            glm_vec3_sub(world_pos3, world_pos1, v1);
+            glm_vec3_sub(point_on_plane, world_pos1, v2);
 
-            float a1 = triangle_area(point_on_plane, world_pos1, world_pos2);
-            float a2 = triangle_area(point_on_plane, world_pos2, world_pos3);
-            float a3 = triangle_area(point_on_plane, world_pos3, world_pos1);
+            float dot00 = glm_vec3_dot(v0, v0);
+            float dot01 = glm_vec3_dot(v0, v1);
+            float dot02 = glm_vec3_dot(v0, v2);
+            float dot11 = glm_vec3_dot(v1, v1);
+            float dot12 = glm_vec3_dot(v1, v2);
 
-            if ((a1 + a2 + a3) <= full_area) {
+            float inv_denom = 1.0f / (dot00 * dot11 - dot01 * dot01);
+            float u = (dot11 * dot02 - dot01 * dot12) * inv_denom;
+            float v = (dot00 * dot12 - dot01 * dot02) * inv_denom;
+
+            if (u >= 0 && v >= 0 && u + v <= 1.0f) {
                 return true;
             }
         }
