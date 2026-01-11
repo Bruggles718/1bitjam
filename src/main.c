@@ -15,41 +15,13 @@
 #include "Camera.h"
 #include "WFObjLoader.h"
 
-void _close(void)
-{
-}
-void _lseek(void)
-{
-
-}
-void _read(void)
-{
-}
-void _write(void)
-{
-}
-void _fstat(void)
-{
-}
-void _getpid(void)
-{
-}
-void _isatty(void)
-{
-}
-void _kill(void)
-{
-}
-void abort(void) {}
-void _exit(void) {}
-void _fini(void) {}
 
 static int update(void* userdata);
 const char* fontpath = "/System/Fonts/Asheville-Sans-14-Bold.pft";
 LCDFont* font = NULL;
 
-SceneObject *scene_object;
-SceneObject* scene_object2;
+SceneObject* submarineObj;
+SceneObject* mapObj;
 Camera *camera;
 Vector* depth_buffer;
 BayerMatrix *bayer_matrix;
@@ -69,10 +41,12 @@ void initialize_depth_buffer() {
 #ifdef _WINDLL
 __declspec(dllexport)
 #endif
+
 int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 {
 	(void)arg; // arg is currently only used for event = kEventKeyPressed
 
+	//Runs at the start of the program
 	if ( event == kEventInit )
 	{
 		const char* err;
@@ -84,16 +58,20 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		WFObjLoader wf_obj_loader;
 		wfobjloader_init(&wf_obj_loader);
 
-		scene_object = (SceneObject*)malloc(sizeof(SceneObject));
-		*scene_object = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "beetle.obj", pd);
-		scene_object2 = (SceneObject*)malloc(sizeof(SceneObject));
-		*scene_object2 = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "icosahedron.obj", pd);
+		submarineObj = (SceneObject*)malloc(sizeof(SceneObject));
+		*submarineObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "submarine.obj", pd);
+		mapObj = (SceneObject*)malloc(sizeof(SceneObject));
+		*mapObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "map.obj", pd);
 		camera = (Camera*)malloc(sizeof(Camera));
 		camera_init(camera);
+
+
 		vec3 pos = {-2.0, 0.0, 0.0};
-		scene_object_set_position(scene_object, pos);
-		vec3 pos2 = { 2.0f, 0.0f, 0.0f };
-		scene_object_set_position(scene_object2, pos2);
+		scene_object_set_position(submarineObj, pos);
+
+		vec3 pos2 = { 0.0f, 0.0f, 0.0f };
+		scene_object_set_position(mapObj, pos2);
+
 		depth_buffer = (Vector*)malloc(sizeof(Vector));
 		vector_setup(depth_buffer, SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(float));
 		initialize_depth_buffer();
@@ -136,41 +114,39 @@ void reset_depth_buffer()
     }
 }
 
-double total = 0;
-double count = 0;
+float total = 0;
+float count = 0;
 
-float smoothed_ax = 0;
-float smoothed_ay = 0; 
-float smoothed_az = 0;
+static float smoothed_pitch = 0.0f;
+static float smoothed_roll = 0.0f;
 
-void get_orientation_from_input(PlaydateAPI* pd, versor out_q)
+void get_orientation_from_input(PlaydateAPI* pd, versor out_q, float pitch_scale, float roll_scale, float yaw_scale)
 {
 	float ax, ay, az;
 	pd->system->getAccelerometer(&ax, &ay, &az);
 
-	// TODO: lowpass filter accelerometer for smoothing
-	/// LOWPASS FILTER FOR ACCELEROMETER SMOOTHING
-	const float coef = 0.1f; //smoothing coefficient
-
-	smoothed_ax = smoothed_ax + coef * (ax - smoothed_ax); 
-	smoothed_ay = smoothed_ay + coef * (ay - smoothed_ay);
-	smoothed_az = smoothed_az + coef * (az - smoothed_az);
-
 	// Compute our pitch & roll from accelerometer
 	float acc_pitch = 4 * atan2f(ay, az);
-	float acc_roll = 0.25 * atan2f(-ax, sqrtf(ay * ay + az * az)); 
+	float acc_roll = 0.25 * atan2f(-ax, sqrtf(ay * ay + az * az));
+
+
+	/// LOWPASS FILTER FOR ACCELEROMETER SMOOTHING
+	const float angle_coef = 0.12f; //smoothing coefficient
+
+	smoothed_pitch = smoothed_pitch + angle_coef * (acc_pitch - smoothed_pitch); 
+	smoothed_roll = smoothed_roll + angle_coef * (acc_roll - smoothed_roll);
 
 	//values where our new pitch and roll will go
-	float pitch, roll;
-
-	//TODO: Make behavior good
-	pitch = acc_pitch;
-	roll = acc_roll;
-
+	float pitch = smoothed_pitch;
+	float roll = smoothed_roll;
 
 	// Crank → yaw
 	float crank = pd->system->getCrankAngle();
 	float yaw = glm_rad(crank);
+
+	pitch *= pitch_scale;
+	roll *= roll_scale;
+	yaw *= yaw_scale;
 
 	//pd->system->logToConsole("PITCH:%d\nROLL:%d\nYAW%d\n", pitch, roll, yaw);
 
@@ -204,14 +180,15 @@ static int update(void* userdata)
 	scene_object_rotate(scene_object, 1.0f, x_axis);
 	scene_object_rotate(scene_object2, 1.0f, y_axis);
 	scene_object_rotate(scene_object2, 1.0f, x_axis);*/
-	versor q;
-	get_orientation_from_input(pd, q);
-	camera_set_rotation(camera, q);
+	versor cam_versor;
+	get_orientation_from_input(pd, cam_versor, 1, 1, 1);
+	camera_set_rotation(camera, cam_versor);
 
 	float moveSpeed = 0.1f;
 	vec3 moveVec = { 0.0f, 0.0f, 0.0f };
 	PDButtons current;
 	pd->system->getButtonState(&current, NULL, NULL);
+
 	if (current & kButtonUp) {
 		moveVec[2] = moveSpeed;
 	}
@@ -233,12 +210,17 @@ static int update(void* userdata)
 	glm_vec2_normalize(moveVec);
 	camera_move_forward(camera, moveVec[2]);
 	camera_move_right(camera, moveVec[0]);
-	camera_move_up(camera, moveVec[1]);
+	camera_move_up(camera, moveVec[1]);	
 
-	//scene_object_set_rotation(scene_object, q);
+	versor submarine_versor;
+	get_orientation_from_input(pd, submarine_versor, 1, 2, 1);
 
-	scene_object_draw(scene_object, camera, pd, depth_buffer, bayer_matrix);
-	scene_object_draw(scene_object2, camera, pd, depth_buffer, bayer_matrix);
+	scene_object_set_rotation(submarineObj, submarine_versor);
+	scene_object_set_position(submarineObj, camera->m_eye_position);
+	
+
+	scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
+	scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);
 	//pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
 	//pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);
