@@ -877,7 +877,7 @@ bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float radiu
         vec3 normal = { nx, ny, nz };
 
         vec3 relative;
-        glm_vec3_sub(point, pos1, relative);
+        glm_vec3_sub(point, world_pos1, relative);
         float dot = relative[0] * nx + relative[1] * ny + relative[2] * nz;
         float norm_sq = nx * nx + ny * ny + nz * nz;
         float scale = dot / norm_sq;
