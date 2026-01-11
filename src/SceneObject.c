@@ -445,12 +445,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         /* Sort vertices by Y coordinate */
         sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
 
-        ///* Clamp to screen bounds */
-        int y_min = max_int(0, (int)ceilf(y1));
-        int y_max = min_int(SCREEN_HEIGHT - 1, (int)floorf(y3));
-
-        //if (y_min > y_max) continue;
-
         /* Check for degenerate triangle */
         if (fabsf(y3 - y1) < 0.001f) continue;
 
@@ -516,44 +510,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             right_edge->x += right_edge->dx;
             right_edge->z += right_edge->dz;
         }
-
-        /* Draw top and bottom points explicitly to ensure no gaps */
-        /* Top vertex */
-        if (y_min >= 0 && y_min < SCREEN_HEIGHT) {
-            int x_top = (int)(x1 + 0.5f);
-            if (x_top >= 0 && x_top < SCREEN_WIDTH) {
-                int idx = y_min * SCREEN_WIDTH + x_top;
-                float z_with_offset = z1;
-                if (z_with_offset > depth_data[idx]) {
-                    depth_data[idx] = z_with_offset;
-                    setPixel(pd, x_top, y_min, kColorBlack);
-                }
-            }
-        }
-
-        /* Bottom vertex */
-        if (y_max >= 0 && y_max < SCREEN_HEIGHT) {
-            int x_bottom = (int)(x3 + 0.5f);
-            if (x_bottom >= 0 && x_bottom < SCREEN_WIDTH) {
-                int idx = y_max * SCREEN_WIDTH + x_bottom;
-                float z_with_offset = z3;
-                if (z_with_offset > depth_data[idx]) {
-                    depth_data[idx] = z_with_offset;
-                    setPixel(pd, x_bottom, y_max, kColorBlack);
-                }
-            }
-        }
-
-        /* FALLBACK: If integrated edges still have gaps, draw explicit lines */
-        /* Uncomment these for guaranteed complete edges (slower but reliable) */
-        /*
-        draw_line_z_thick(pd, depth_buffer, (int)x1, (int)y1, z1 + edge_depth_offset,
-                         (int)x2, (int)y2, z2 + edge_depth_offset, kColorBlack, 2);
-        draw_line_z_thick(pd, depth_buffer, (int)x2, (int)y2, z2 + edge_depth_offset,
-                         (int)x3, (int)y3, z3 + edge_depth_offset, kColorBlack, 2);
-        draw_line_z_thick(pd, depth_buffer, (int)x3, (int)y3, z3 + edge_depth_offset,
-                         (int)x1, (int)y1, z1 + edge_depth_offset, kColorBlack, 2);
-        */
     }
 }
 
