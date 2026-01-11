@@ -380,9 +380,31 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         if (facing < 0) continue;
 
         /* Lighting */
-        
+
+        vec4 world_pos1, world_pos2, world_pos3;
+        glm_mat4_mulv(model, pos1, world_pos1);
+        glm_mat4_mulv(model, pos2, world_pos2);
+        glm_mat4_mulv(model, pos3, world_pos3);
+
+        /* Calculate normal in world space */
+        float w_e1x = world_pos2[0] - world_pos1[0];
+        float w_e1y = world_pos2[1] - world_pos1[1];
+        float w_e1z = world_pos2[2] - world_pos1[2];
+        float w_e2x = world_pos3[0] - world_pos1[0];
+        float w_e2y = world_pos3[1] - world_pos1[1];
+        float w_e2z = world_pos3[2] - world_pos1[2];
+
+        nx = w_e1y * w_e2z - w_e1z * w_e2y;
+        ny = w_e1z * w_e2x - w_e1x * w_e2z;
+        nz = w_e1x * w_e2y - w_e1y * w_e2x;
+
+        /* Fixed world-space light direction (pointing up) */
+        const float light_y = 1.0f;
+
+        /* Calculate brightness from world-space normal */
         float len = sqrtf(nx * nx + ny * ny + nz * nz);
         if (len < 0.001f) continue;
+
         float brightness = (ny + len) * 0.5f / len;
 
         /* Project to screen space */
