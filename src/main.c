@@ -173,7 +173,7 @@ void get_orientation_from_input(PlaydateAPI* pd, versor out_q)
 	float crank = pd->system->getCrankAngle();
 	float yaw = glm_rad(crank);
 
-	pd->system->logToConsole("PITCH:%d\nROLL:%d\nYAW%d\n", pitch, roll, yaw);
+	//pd->system->logToConsole("PITCH:%d\nROLL:%d\nYAW%d\n", pitch, roll, yaw);
 
 	// Build quaternions
 	versor q_pitch, q_roll, q_yaw, temp, q_final;
