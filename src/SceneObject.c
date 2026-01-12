@@ -1,4 +1,4 @@
-#include "SceneObject.h"
+﻿#include "SceneObject.h"
 // #include <cglm/gtc/matrix_transform.h>
 #include <cglm/mat4.h>
 // #include <cglm/gtc/type_ptr.h>
@@ -8,6 +8,10 @@
 extern LCDBitmap* frame_buffer;
 extern uint8_t* fb_data;
 extern int rowbytes;
+
+typedef struct {
+    float x, y, z;
+} ClipVert;
 
 /* ===== Helper Functions ===== */
 
@@ -115,7 +119,7 @@ void bayer_matrix_destroy(BayerMatrix* matrix) {
 
 /* ===== Drawing Functions ===== */
 
-static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
+static void draw_line_z_thick(PlaydateAPI* pd, float* depth_buffer,
                                int x0, int y0, float iz0,
                                int x1, int y1, float iz1,
                                uint8_t color, int thickness) {
@@ -127,9 +131,11 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
     int err = dx - dy;
     
     int steps = max_int(dx, dy);
+    float diz = (iz1 - iz0) / steps;
+    float iz = iz0;
     for (int i = 0; i <= steps; i++) {
         float tline = steps == 0 ? 0 : (float)i / steps;
-        float iz = iz0 * (1.0f - tline) + iz1 * tline;
+        //float iz = iz0 * (1.0f - tline) + iz1 * tline;
         
         int xi = x0;
         int yi = y0;
@@ -143,9 +149,9 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
                     continue;
                 
                 int idx = py * SCREEN_WIDTH + px;
-                float depth_val = VECTOR_GET_AS(float, depth_buffer, idx);
+                float depth_val = depth_buffer[idx];
                 if (iz > depth_val) {
-                    depth_val = iz;
+                    depth_buffer[idx] = iz;
                     //pd->graphics->setPixel(px, py, color);
                     setPixel(pd, px, py, color);
                 }
@@ -155,6 +161,7 @@ static void draw_line_z_thick(PlaydateAPI* pd, Vector* depth_buffer,
         int e2 = 2 * err;
         if (e2 > -dy) { err -= dy; x0 += sx; }
         if (e2 < dx)  { err += dx; y0 += sy; }
+        iz += diz;
     }
 }
 
@@ -192,6 +199,10 @@ typedef struct {
     float dz;          /* z increment per scanline */
     int y_start;       /* Starting scanline */
     int y_end;         /* Ending scanline */
+    int x_start;
+    int x_end;
+    float z_start;
+    float z_end;
 } EdgeData;
 
 /* Sort vertices by Y coordinate */
@@ -221,9 +232,13 @@ static inline void setup_edge(EdgeData* edge, float x1, float y1, float z1,
     float x2, float y2, float z2) {
     edge->y_start = (int)ceilf(y1);
     edge->y_end = (int)ceilf(y2);
+    edge->x_start = (int)ceilf(x1);
+    edge->x_end = (int)ceilf(x2);
+    edge->z_start = z1;
+    edge->z_end = z2;
 
     float dy = y2 - y1;
-    if (fabsf(dy) < 0.001f) {
+    if (edge->y_start >= edge->y_end) {  // No scanlines to draw
         edge->dx = 0;
         edge->dz = 0;
         edge->x = x1;
@@ -252,38 +267,17 @@ static inline void setup_edge(EdgeData* edge, float x1, float y1, float z1,
 #define drawpixel(data, x, y, rowbytes, color) (((color) == kColorBlack) ? setpixel((data), (x), (y), (rowbytes)) : clearpixel((data), (x), (y), (rowbytes)))
 
 void setPixel(PlaydateAPI* pd, int x, int y, int color) {
-
-    // Get direct access to the bitmap data
-    //pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &data);
-    //int display_rowbytes = LCD_ROWSIZE;
-    //pd->system->logToConsole("idx: %i", ((y)*display_rowbytes + (x) / 8));
     if (x >= SCREEN_WIDTH || x < 0 || y > SCREEN_HEIGHT || y < 0) return;
     drawpixel(fb_data, x, y, rowbytes, color);
-    //pd->graphics->setPixel(x, y, color);
-    //draw_2x2_block(pd, x, y, color);
-    
-    /*int byte_index = y * rowbytes + (x / 8);
-    int bit_index = 7 - (x % 8);
-    if (color == kColorBlack) {
-        data[byte_index] &= ~(1 << bit_index);
-    }
-    else {
-        data[byte_index] |= (1 << bit_index);
-    }*/
 }
+
+#define lerp(a, b, t) (a + t * (b - a))
 
 /* Fill a horizontal span with integrated edge drawing */
 static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
     int y, float x_left, float x_right,
     float z_left, float z_right, float brightness,
     int draw_left_edge, int draw_right_edge) {
-    if (x_left > x_right) {
-        float tmp = x_left; x_left = x_right; x_right = tmp;
-        tmp = z_left; z_left = z_right; z_right = tmp;
-        int tmp_edge = draw_left_edge;
-        draw_left_edge = draw_right_edge;
-        draw_right_edge = tmp_edge;
-    }
 
     int x_start = max_int(0, (int)ceilf(x_left));
     int x_end = min_int(SCREEN_WIDTH - 1, (int)floorf(x_right));
@@ -331,6 +325,82 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
         z += dz;
     }
 }
+
+static ClipVert intersect_near(ClipVert a, ClipVert b, float near_z)
+{
+    float t = (near_z - a.z) / (b.z - a.z);
+
+    ClipVert r;
+    r.x = a.x + (b.x - a.x) * t;
+    r.y = a.y + (b.y - a.y) * t;
+    r.z = near_z;
+    return r;
+}
+
+int clip_triangle_near(
+    ClipVert in[3],
+    ClipVert out[6],
+    float near_z)
+{
+    int inside[3];
+    for (int i = 0; i < 3; i++)
+        inside[i] = (in[i].z <= near_z);
+
+    int count =
+        inside[0] +
+        inside[1] +
+        inside[2];
+
+    /* Fully outside */
+    if (count == 0)
+        return 0;
+
+    /* Fully inside */
+    if (count == 3) {
+        out[0] = in[0];
+        out[1] = in[1];
+        out[2] = in[2];
+        return 1; /* one triangle */
+    }
+
+    /* One inside */
+    if (count == 1) {
+        int i0 = inside[0] ? 0 : inside[1] ? 1 : 2;
+        int i1 = (i0 + 1) % 3;
+        int i2 = (i0 + 2) % 3;
+
+        ClipVert v0 = in[i0];
+        ClipVert v1 = intersect_near(v0, in[i1], near_z);
+        ClipVert v2 = intersect_near(v0, in[i2], near_z);
+
+        out[0] = v0;
+        out[1] = v1;
+        out[2] = v2;
+        return 1;
+    }
+
+    /* Two inside */
+    int i0 = !inside[0] ? 0 : !inside[1] ? 1 : 2;
+    int i1 = (i0 + 1) % 3;
+    int i2 = (i0 + 2) % 3;
+
+    ClipVert v0 = in[i1]; // real v0
+    ClipVert v1 = in[i2]; // real v1
+    ClipVert v2 = intersect_near(v0, in[i0], near_z); // new v2
+    ClipVert v3 = intersect_near(v1, in[i0], near_z); // new v3
+
+    /* split quad into 2 triangles */
+    out[0] = v0;
+    out[1] = v1;
+    out[2] = v3;
+
+    out[3] = v0;
+    out[4] = v2;
+    out[5] = v3;
+
+    return 2;
+}
+
 
 void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view,
     mat4 projection, Vector* depth_buffer, BayerMatrix* T) {
@@ -407,108 +477,147 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
 
         float brightness = (ny + len) * 0.5f / len;
 
-        /* Project to screen space */
-        vec4 clip1, clip2, clip3;
-        glm_mat4_mulv(mvp, pos1, clip1);
-        glm_mat4_mulv(mvp, pos2, clip2);
-        glm_mat4_mulv(mvp, pos3, clip3);
+        ClipVert vin[3] = {
+            { view_pos1[0], view_pos1[1], view_pos1[2] },
+            { view_pos2[0], view_pos2[1], view_pos2[2] },
+            { view_pos3[0], view_pos3[1], view_pos3[2] }
+        };
 
-        if (clip1[3] <= 0.001f || clip2[3] <= 0.001f || clip3[3] <= 0.001f) {
-            continue; // Skip triangles with vertices too close or behind camera
-        }
+        ClipVert vout[6];
+        int tri_count = clip_triangle_near(vin, vout, -0.1f); // your near plane
+        
+        
 
-        float inv_w1 = 1.0f / clip1[3];
-        float inv_w2 = 1.0f / clip2[3];
-        float inv_w3 = 1.0f / clip3[3];
+        if (tri_count == 0)
+            continue;
 
-        float x1 = (clip1[0] * inv_w1 + 1.0f) * hw;
-        float y1 = (1.0f - clip1[1] * inv_w1) * hh;
-        float x2 = (clip2[0] * inv_w2 + 1.0f) * hw;
-        float y2 = (1.0f - clip2[1] * inv_w2) * hh;
-        float x3 = (clip3[0] * inv_w3 + 1.0f) * hw;
-        float y3 = (1.0f - clip3[1] * inv_w3) * hh;
+        for (int t = 0; t < tri_count; t++) {
 
-        float z1 = -inv_w1 / view_pos1[2];
-        float z2 = -inv_w2 / view_pos2[2];
-        float z3 = -inv_w3 / view_pos3[2];
+            ClipVert a = vout[t * 3 + 0];
+            ClipVert b = vout[t * 3 + 1];
+            ClipVert c = vout[t * 3 + 2];
 
-        float min_x = min3(x1, x2, x3);
-        float max_x = max3(x1, x2, x3);
-        float min_y = min3(y1, y2, y3);
-        float max_y = max3(y1, y2, y3);
+            /* Use a,b,c as your new triangle */
+            /* Continue pipeline from here */
 
-        if (max_x < 0 || min_x >= SCREEN_WIDTH ||
-            max_y < 0 || min_y >= SCREEN_HEIGHT) {
-            continue;  /* Triangle completely off-screen */
-        }
+            vec4 newVP1 = { a.x, a.y, a.z, 1.0f };
+            vec4 newVP2 = { b.x, b.y, b.z, 1.0f };
+            vec4 newVP3 = { c.x, c.y, c.z, 1.0f };
+            glm_vec4_copy(newVP1, view_pos1);
+            glm_vec4_copy(newVP2, view_pos2);
+            glm_vec4_copy(newVP3, view_pos3);
 
-        /* Sort vertices by Y coordinate */
-        sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
+             /* Project to screen space */
+            vec4 clip1, clip2, clip3;
+            glm_mat4_mulv(projection, view_pos1, clip1);
+            glm_mat4_mulv(projection, view_pos2, clip2);
+            glm_mat4_mulv(projection, view_pos3, clip3);
 
-        /* Check for degenerate triangle */
-        if (fabsf(y3 - y1) < 0.001f) continue;
+            float inv_w1 = 1.0f / clip1[3];
+            float inv_w2 = 1.0f / clip2[3];
+            float inv_w3 = 1.0f / clip3[3];
 
-        /* Setup edges */
-        EdgeData edge_long;   /* v1 to v3 (long edge) */
-        EdgeData edge_short1; /* v1 to v2 (short edge 1) */
-        EdgeData edge_short2; /* v2 to v3 (short edge 2) */
+            float x1 = (clip1[0] * inv_w1 + 1.0f) * hw;
+            float y1 = (1.0f - clip1[1] * inv_w1) * hh;
+            float x2 = (clip2[0] * inv_w2 + 1.0f) * hw;
+            float y2 = (1.0f - clip2[1] * inv_w2) * hh;
+            float x3 = (clip3[0] * inv_w3 + 1.0f) * hw;
+            float y3 = (1.0f - clip3[1] * inv_w3) * hh;
 
-        /* Don't clamp y_min/y_max initially - use original values */
-        int y_top = (int)ceilf(y1);
-        int y_bottom = (int)floorf(y3);
+            float z1 = -inv_w1 / view_pos1[2];
+            float z2 = -inv_w2 / view_pos2[2];
+            float z3 = -inv_w3 / view_pos3[2];
 
-        /* Setup edges with original values */
-        setup_edge(&edge_long, x1, y1, z1, x3, y3, z3);
-        setup_edge(&edge_short1, x1, y1, z1, x2, y2, z2);
-        setup_edge(&edge_short2, x2, y2, z2, x3, y3, z3);
+            float min_x = min3(x1, x2, x3);
+            float max_x = max3(x1, x2, x3);
+            float min_y = min3(y1, y2, y3);
+            float max_y = max3(y1, y2, y3);
 
-        /* Determine which side the middle vertex is on */
-        float mid_x_on_long = x1 + (x3 - x1) * (y2 - y1) / (y3 - y1);
-        int middle_is_right = (x2 > mid_x_on_long);
-
-        /* Rasterize top half (v1 to v2) */
-        int y_mid = (int)ceilf(y2);
-        EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
-        EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
-
-        for (int y = y_top; y < y_mid; y++) {
-            /* Draw left edge if it's the short edge, right edge if it's the short edge */
-            int draw_left = !middle_is_right;  /* short edge on left */
-            int draw_right = middle_is_right;   /* short edge on right */
-            /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-            if (y >= 0 && y < SCREEN_HEIGHT) {
-                fill_span(pd, depth_data, T, y,
-                    left_edge->x, right_edge->x,
-                    left_edge->z, right_edge->z, brightness,
-                    1, 1);
+            if (max_x < 0 || min_x >= SCREEN_WIDTH ||
+                max_y < 0 || min_y >= SCREEN_HEIGHT) {
+                continue;  /* Triangle completely off-screen */
             }
 
-            left_edge->x += left_edge->dx;
-            left_edge->z += left_edge->dz;
-            right_edge->x += right_edge->dx;
-            right_edge->z += right_edge->dz;
-        }
+            /* Sort vertices by Y coordinate */
+            sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
 
-        /* Rasterize bottom half (v2 to v3) */
-        left_edge = middle_is_right ? &edge_long : &edge_short2;
-        right_edge = middle_is_right ? &edge_short2 : &edge_long;
+            /* Check for degenerate triangle */
+            if (fabsf(y3 - y1) < 0.001f) continue;
 
-        for (int y = y_mid; y <= y_bottom; y++) {
-            /* Draw left edge if it's the short edge, right edge if it's the short edge */
-            int draw_left = !middle_is_right;  /* short edge on left */
-            int draw_right = middle_is_right;   /* short edge on right */
-            /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-            if (y >= 0 && y < SCREEN_HEIGHT) {
-                fill_span(pd, depth_data, T, y,
-                    left_edge->x, right_edge->x,
-                    left_edge->z, right_edge->z, brightness,
-                    1, 1);
+            /* Setup edges */
+            EdgeData edge_long;   /* v1 to v3 (long edge) */
+            EdgeData edge_short1; /* v1 to v2 (short edge 1) */
+            EdgeData edge_short2; /* v2 to v3 (short edge 2) */
+
+            /* Don't clamp y_min/y_max initially - use original values */
+            int y_top = (int)ceilf(y1);
+            int y_bottom = (int)floorf(y3);
+
+            /* Setup edges with original values */
+            setup_edge(&edge_long, x1, y1, z1, x3, y3, z3);
+            setup_edge(&edge_short1, x1, y1, z1, x2, y2, z2);
+            setup_edge(&edge_short2, x2, y2, z2, x3, y3, z3);
+
+            /* Determine which side the middle vertex is on */
+            float mid_x_on_long = x1 + (x3 - x1) * (y2 - y1) / (y3 - y1);
+            int middle_is_right = (x2 > mid_x_on_long);
+
+            /* Rasterize top half (v1 to v2) */
+            int y_mid = (int)ceilf(y2);
+            EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
+            EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
+
+            if (i == 99) {
+                pd->system->logToConsole("mid is right: %i", middle_is_right);
+                float x_end = edge_short1.x + edge_short1.dx * (edge_short1.y_end - edge_short1.y_start);
+                pd->system->logToConsole("edge_short1 x: %f", edge_short1.x);
+                pd->system->logToConsole("left_edge_start: %f", left_edge->x);
             }
 
-            left_edge->x += left_edge->dx;
-            left_edge->z += left_edge->dz;
-            right_edge->x += right_edge->dx;
-            right_edge->z += right_edge->dz;
+            for (int y = y_top; y < y_mid; y++) {
+                /* Draw left edge if it's the short edge, right edge if it's the short edge */
+                int draw_left = !middle_is_right;  /* short edge on left */
+                int draw_right = middle_is_right;   /* short edge on right */
+                /* ALWAYS draw both edges - left is always an edge, right is always an edge */
+
+                if (y >= 0 && y < SCREEN_HEIGHT) {
+                    fill_span(pd, depth_data, T, y,
+                        left_edge->x, right_edge->x,
+                        left_edge->z, right_edge->z, brightness,
+                        1, 1);
+                }
+
+                left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
+                left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
+                right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
+                right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
+            }
+
+            if (i == 99) {
+                pd->system->logToConsole("left_edge_end: %f", left_edge->x);
+            }
+
+            /* Rasterize bottom half (v2 to v3) */
+            left_edge = middle_is_right ? &edge_long : &edge_short2;
+            right_edge = middle_is_right ? &edge_short2 : &edge_long;
+
+            for (int y = y_mid; y <= y_bottom; y++) {
+                /* Draw left edge if it's the short edge, right edge if it's the short edge */
+                int draw_left = !middle_is_right;  /* short edge on left */
+                int draw_right = middle_is_right;   /* short edge on right */
+                /* ALWAYS draw both edges - left is always an edge, right is always an edge */
+                if (y >= 0 && y < SCREEN_HEIGHT) {
+                    fill_span(pd, depth_data, T, y,
+                        left_edge->x, right_edge->x,
+                        left_edge->z, right_edge->z, brightness,
+                        1, 1);
+                }
+
+                left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
+                left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
+                right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
+                right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
+            }
         }
     }
 }
@@ -531,7 +640,7 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
     const float hh = SCREEN_HEIGHT * 0.5f;
     const int screen_w_minus_1 = SCREEN_WIDTH - 1;
     const int screen_h_minus_1 = SCREEN_HEIGHT - 1;
-    const int line_thickness = 0;
+    const int line_thickness = 2;
 
     /* Cache depth buffer data pointer */
     float* depth_data = (float*)depth_buffer->data;
@@ -579,6 +688,11 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
         glm_mat4_mulv(mvp, pos1, clip1);
         glm_mat4_mulv(mvp, pos2, clip2);
         glm_mat4_mulv(mvp, pos3, clip3);
+
+        if (clip1[3] <= 0 || clip2[3] <= 0 || clip3[3] <= 0) {
+            continue;
+        }
+
 
         /* Perspective divide and screen transform */
         float inv_w1 = 1.0f / clip1[3];
@@ -642,6 +756,7 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
                     float iz = alpha * iz0 + beta * iz1 + gamma * iz2;
 
                     /* Depth test */
+                    if (idx < 0 || idx >= SCREEN_WIDTH * SCREEN_HEIGHT) continue;
                     if (iz > depth_data[idx]) {
                         depth_data[idx] = iz;
                         int color = (brightness > T->data[bayer_y_offset][bayer_x]) ? kColorWhite : kColorBlack;
@@ -841,7 +956,7 @@ float triangle_area(vec3 world_pos1, vec3 world_pos2, vec3 world_pos3) {
     float full_area = normal_mag / 2;
 }
 
-bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float radius) {
+bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float distance) {
     if (!obj) return false;
 
     /* Build model matrix */
@@ -886,7 +1001,7 @@ bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float radiu
         float projz = nz * scale;
         vec3 projection = { projx, projy, projz };
         float mag = vec3_mag_sqr(projx, projy, projz);
-        if (mag < (radius * radius)) {
+        if (mag < (distance * distance)) {
             vec3 point_on_plane;
             glm_vec3_sub(point, projection, point_on_plane);
 

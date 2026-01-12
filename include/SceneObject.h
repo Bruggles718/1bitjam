@@ -122,6 +122,6 @@ void scene_object_send_vertex_data_to_gpu(SceneObject* obj);
 void scene_object_pre_draw(SceneObject* obj, const Camera* camera, 
                            int screen_width, int screen_height);
 
-bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float radius);
+bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float distance);
 
 #endif /* SCENE_OBJECT_H */
