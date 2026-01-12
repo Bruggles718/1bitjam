@@ -567,13 +567,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
             EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
 
-            if (i == 99) {
-                pd->system->logToConsole("mid is right: %i", middle_is_right);
-                float x_end = edge_short1.x + edge_short1.dx * (edge_short1.y_end - edge_short1.y_start);
-                pd->system->logToConsole("edge_short1 x: %f", edge_short1.x);
-                pd->system->logToConsole("left_edge_start: %f", left_edge->x);
-            }
-
             for (int y = y_top; y < y_mid; y++) {
                 /* Draw left edge if it's the short edge, right edge if it's the short edge */
                 int draw_left = !middle_is_right;  /* short edge on left */
@@ -591,10 +584,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
                 right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
                 right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
-            }
-
-            if (i == 99) {
-                pd->system->logToConsole("left_edge_end: %f", left_edge->x);
             }
 
             /* Rasterize bottom half (v2 to v3) */
