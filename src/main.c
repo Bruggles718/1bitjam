@@ -86,7 +86,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 
 		pd->system->setPeripheralsEnabled(kAccelerometer);
 
-
+		pd->display->setScale(PIXEL_SCALE);
 
 		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
 		pd->system->setUpdateCallback(update, pd);
@@ -193,7 +193,7 @@ static vec3 sub_velocity = { 0,0,0 };
 void control_object(PlaydateAPI* pd, SceneObject* sub) {
 	//accelerometer and crank
 	versor tilt;
-	calculate_input_versor(pd, tilt, 1.5, 1);
+	calculate_input_versor(pd, tilt, 1.5f, 1);
 	scene_object_set_rotation(sub, tilt);
 
 	//calculate forward vector from tilt
@@ -244,7 +244,7 @@ void control_object(PlaydateAPI* pd, SceneObject* sub) {
 
 	float camera_distance = 6.0f;
 
-	vec3 backward = { 0, 0.3, 1 };
+	vec3 backward = { 0, 0.3f, 1 };
 
 	glm_quat_mat4(tilt, rot);
 	glm_mat4_mulv3(rot, backward, 1.0f, backward);
