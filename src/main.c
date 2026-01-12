@@ -124,8 +124,8 @@ void calculate_input_versor(PlaydateAPI* pd, versor out_q, float pitch_scale, fl
 	pd->system->getAccelerometer(&ax, &ay, &az);
 
 	// Compute our pitch & roll from accelerometer
-	float acc_pitch = 4 * atan2f(ay, az);
-	float acc_roll = 0.25 * atan2f(-ax, sqrtf(ay * ay + az * az));
+	float acc_pitch = atan2f(ay, az);
+	float acc_roll = atan2f(-ax, sqrtf(ay * ay + az * az));
 
 
 	/// LOWPASS FILTER FOR ACCELEROMETER SMOOTHING
@@ -193,7 +193,7 @@ static vec3 sub_velocity = { 0,0,0 };
 void control_object(PlaydateAPI* pd, SceneObject* sub) {
 	//accelerometer and crank
 	versor tilt;
-	calculate_input_versor(pd, tilt, 0.25, 4);
+	calculate_input_versor(pd, tilt, 1.5, 1);
 	scene_object_set_rotation(sub, tilt);
 
 	//calculate forward vector from tilt
@@ -215,11 +215,13 @@ void control_object(PlaydateAPI* pd, SceneObject* sub) {
 	glm_vec3_add(forward, side, forward);
 	glm_normalize(forward);
 
+	
+
 	PDButtons current; pd->system->getButtonState(&current, NULL, NULL);
 
 	//give her gas
 	if (current & kButtonUp) {
-		float thrust = 0.002f;
+		float thrust = 0.1f;
 		vec3 acceleration;
 		glm_vec3_scale(forward, thrust, acceleration);
 		glm_vec3_add(sub_velocity, acceleration, sub_velocity);
@@ -235,7 +237,41 @@ void control_object(PlaydateAPI* pd, SceneObject* sub) {
 	glm_vec3_copy(sub->m_transform.m_position, pos);
 	glm_vec3_add(pos, sub_velocity, pos);
 	scene_object_set_position(sub, pos);
+
+
+
+	// -- CAMERA STUFF --
+
+	float camera_distance = 6.0f;
+
+	vec3 backward = { 0, 0.3, 1 };
+
+	glm_quat_mat4(tilt, rot);
+	glm_mat4_mulv3(rot, backward, 1.0f, backward);
+	glm_vec3_normalize(backward);
+
+	vec3 cam_pos;
+	glm_vec3_copy(sub->m_transform.m_position, cam_pos);
+
+	vec3 cam_offset;
+	glm_vec3_scale(backward, camera_distance, cam_offset);
+
+	glm_vec3_add(cam_pos, cam_offset, cam_pos);
+
+	static versor cam_rot = GLM_QUAT_IDENTITY_INIT;
+	float rot_lerp = 0.15f;
+
+	versor blended;
+	glm_quat_slerp(cam_rot, tilt, rot_lerp, blended);
+	glm_quat_normalize_to(blended, cam_rot);
+
+	camera_set_rotation(camera, cam_rot);
+	camera_set_eye_position(camera, cam_pos[0], cam_pos[1], cam_pos[2]);
+
+
 }
+
+
 
 static int update(void* userdata)
 {
