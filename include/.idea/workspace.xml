@@ -1,51 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="BackendCodeEditorMiscSettings">
     <option name="/Default/RiderDebugger/RiderRestoreDecompile/RestoreDecompileSetting/@EntryValue" value="false" type="bool" />
     <option name="/Default/Housekeeping/GlobalSettingsUpgraded/IsUpgraded/@EntryValue" value="true" type="bool" />
     <option name="/Default/Housekeeping/FeatureSuggestion/FeatureSuggestionManager/DisabledSuggesters/=SwitchToGoToActionSuggester/@EntryIndexedValue" value="true" type="bool" />
     <option name="/Default/Housekeeping/FeatureSuggestion/FeatureSuggestionManager/DisabledSuggesters/=SwitchToGoToActionSuggester/@EntryIndexRemoved" />
   </component>
+  <component name="CMakeProjectFlavorService">
+    <option name="flavorId" value="CMakePlainProjectFlavor" />
+  </component>
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="d4308cd5-dd78-4fe9-8dd3-4971692bb593" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../1bitjam.pdx/pdxinfo" beforeDir="false" afterPath="$PROJECT_DIR$/../1bitjam.pdx/pdxinfo" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeCache.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../build/CMakeCache.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/DependInfo.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/build.make" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/cmake_clean.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/compiler_depend.make" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/compiler_depend.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/depend.make" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/flags.make" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/link.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/progress.make" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/Camera.c.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/Camera.c.o.d" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/SceneObject.c.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/SceneObject.c.o.d" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/WFObjLoader.c.o.d" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/main.c.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/main.c.o.d" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/vector.c.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/1bitjam.dir/src/vector.c.o.d" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/3.28.3/CMakeASMCompiler.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/3.28.3/CMakeCCompiler.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/3.28.3/CMakeDetermineCompilerABI_C.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/3.28.3/CMakeSystem.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/3.28.3/CompilerIdC/a.out" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/CMakeConfigureLog.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../build/CMakeFiles/CMakeConfigureLog.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/CMakeDirectoryInformation.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/Makefile.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/Makefile2" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/TargetDirectories.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../build/CMakeFiles/TargetDirectories.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/CMakeFiles/progress.marks" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/Makefile" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/cmake_install.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/../build/cmake_install.cmake" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../build/lib1bitjam.so" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/Camera.c" beforeDir="false" afterPath="$PROJECT_DIR$/../src/Camera.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/vector.c" beforeDir="false" afterPath="$PROJECT_DIR$/../src/vector.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main.c" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,9 +39,9 @@
     <option name="minorVersion" value="3.2" />
     <option name="productBranch" value="Classic" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 7
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
   <component name="ProjectId" id="382ILVDTqIOwsIU8qYcU9Z5ZrLB" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -77,11 +52,16 @@
     "RunOnceActivity.RadMigrateCodeStyle": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "git-widget-placeholder": "convert__to__raw__c",
     "ignore.virus.scanning.warn.message": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "vue.rearranger.settings.migration": "true"
   }
@@ -95,6 +75,8 @@
       <option name="presentableId" value="Default" />
       <updated>1767991183776</updated>
       <workItem from="1767991186723" duration="71000" />
+      <workItem from="1768177156505" duration="3000" />
+      <workItem from="1768177161958" duration="682000" />
     </task>
     <servers />
   </component>

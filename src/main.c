@@ -66,7 +66,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		camera_init(camera);
 
 
-		vec3 pos = {-2.0, 0.0, 0.0};
+		vec3 pos = {0.0, 0.0, 0.0};
 		scene_object_set_position(submarineObj, pos);
 
 		vec3 pos2 = { 0.0f, 0.0f, 0.0f };
@@ -114,13 +114,11 @@ void reset_depth_buffer()
     }
 }
 
-float total = 0;
-float count = 0;
 
 static float smoothed_pitch = 0.0f;
 static float smoothed_roll = 0.0f;
 
-void get_orientation_from_input(PlaydateAPI* pd, versor out_q, float pitch_scale, float roll_scale, float yaw_scale)
+void calculate_input_versor(PlaydateAPI* pd, versor out_q, float pitch_scale, float roll_scale)
 {
 	float ax, ay, az;
 	pd->system->getAccelerometer(&ax, &ay, &az);
@@ -137,33 +135,107 @@ void get_orientation_from_input(PlaydateAPI* pd, versor out_q, float pitch_scale
 	smoothed_roll = smoothed_roll + angle_coef * (acc_roll - smoothed_roll);
 
 	//values where our new pitch and roll will go
-	float pitch = smoothed_pitch;
-	float roll = smoothed_roll;
+	float pitch = smoothed_pitch * pitch_scale;
+	float roll = smoothed_roll * roll_scale;
 
-	// Crank → yaw
-	float crank = pd->system->getCrankAngle();
-	float yaw = glm_rad(crank);
+	/* doesnt work w new calibration system
+	float max_pitch = glm_rad(80.0f);   // or whatever feels good
+	float max_roll = glm_rad(80.0f);
 
-	pitch *= pitch_scale;
-	roll *= roll_scale;
-	yaw *= yaw_scale;
+	if (pitch > max_pitch) pitch = max_pitch;
+	if (pitch < -max_pitch) pitch = -max_pitch;
 
-	//pd->system->logToConsole("PITCH:%d\nROLL:%d\nYAW%d\n", pitch, roll, yaw);
+	if (roll > max_roll) roll = max_roll;
+	if (roll < -max_roll) roll = -max_roll;
+	*/
 
 	// Build quaternions
-	versor q_pitch, q_roll, q_yaw, temp, q_final;
+	versor q_pitch, q_roll, q_tilt;
 
 	glm_quatv(q_pitch, pitch, (vec3) { 1, 0, 0 });
 	glm_quatv(q_roll, roll, (vec3) { 0, 0, 1 });
-	glm_quatv(q_yaw, yaw, (vec3) { 0, 1, 0 });
+	glm_quat_mul(q_pitch, q_roll, q_tilt);
 
-	// Combine yaw * pitch * roll
-	glm_quat_mul(q_yaw, q_pitch, temp);
-	glm_quat_mul(temp, q_roll, q_final);
+	// -- ACCELEROMETER USER CALIBRATION (storing a user set offset)
+	static versor q_calibration = GLM_QUAT_IDENTITY_INIT;
+	static bool is_calibrated = false;
+
+	PDButtons current;
+	pd->system->getButtonState(&current, NULL, NULL);
+
+	if (current & kButtonDown) { //if the player hits down, the accelerometer will store its current value in q_calibration and use it as an offset
+		glm_quat_copy(q_tilt, q_calibration);
+		glm_quat_normalize(q_calibration);
+		is_calibrated = true;
+	}
+
+	versor corrected_tilt;
+	if (is_calibrated) {
+		versor inverse;
+		glm_quat_inv(q_calibration, inverse);
+		glm_quat_mul(inverse, q_tilt, corrected_tilt);
+	}
+	else {
+		glm_quat_copy(q_tilt, corrected_tilt);
+	}
+
+	versor q_yaw;
+	glm_quatv(q_yaw, glm_rad(pd->system->getCrankAngle()), (vec3) { 0, 1, 0 });
+
+	versor q_final;
+	glm_quat_mul(q_yaw, corrected_tilt, q_final);
 
 	glm_quat_normalize_to(q_final, out_q);
+
 }
 
+static vec3 sub_velocity = { 0,0,0 };
+void control_object(PlaydateAPI* pd, SceneObject* sub) {
+	//accelerometer and crank
+	versor tilt;
+	calculate_input_versor(pd, tilt, 0.25, 4);
+	scene_object_set_rotation(sub, tilt);
+
+	//calculate forward vector from tilt
+	vec3 forward = { 0, 0, -1 };
+	vec3 right = { -1, 0, 0 };
+	mat4 rot;
+	glm_quat_mat4(tilt, rot);
+	glm_mat4_mulv3(rot, forward, 1.0f, forward);
+	glm_mat4_mulv3(rot, right, 1.0f, right);
+	glm_vec3_normalize(forward);
+	glm_vec3_normalize(right);
+
+	//banking (roll effecting our forward vector)
+	float bank_strength = 4; 
+
+	float bank = smoothed_roll * bank_strength;
+	vec3 side;
+	glm_vec3_scale(right, bank, side);
+	glm_vec3_add(forward, side, forward);
+	glm_normalize(forward);
+
+	PDButtons current; pd->system->getButtonState(&current, NULL, NULL);
+
+	//give her gas
+	if (current & kButtonUp) {
+		float thrust = 0.002f;
+		vec3 acceleration;
+		glm_vec3_scale(forward, thrust, acceleration);
+		glm_vec3_add(sub_velocity, acceleration, sub_velocity);
+	}
+
+	//drag
+	float drag = 0.92f;
+	glm_vec3_scale(sub_velocity, drag, sub_velocity);
+
+
+
+	vec3 pos;
+	glm_vec3_copy(sub->m_transform.m_position, pos);
+	glm_vec3_add(pos, sub_velocity, pos);
+	scene_object_set_position(sub, pos);
+}
 
 static int update(void* userdata)
 {
@@ -174,49 +246,9 @@ static int update(void* userdata)
 	//pd->graphics->clear(kColorWhite);
 	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
-	vec3 y_axis = {0.0f, 1.0f, 0.0f};
-	vec3 x_axis = {1.0f, 0.0f, 0.0f};
-	/*scene_object_rotate(scene_object, 1.0f, y_axis);
-	scene_object_rotate(scene_object, 1.0f, x_axis);
-	scene_object_rotate(scene_object2, 1.0f, y_axis);
-	scene_object_rotate(scene_object2, 1.0f, x_axis);*/
-	versor cam_versor;
-	get_orientation_from_input(pd, cam_versor, 1, 1, 1);
-	camera_set_rotation(camera, cam_versor);
+	control_object(pd, submarineObj);
 
-	float moveSpeed = 0.1f;
-	vec3 moveVec = { 0.0f, 0.0f, 0.0f };
-	PDButtons current;
-	pd->system->getButtonState(&current, NULL, NULL);
 
-	if (current & kButtonUp) {
-		moveVec[2] = moveSpeed;
-	}
-	if (current & kButtonDown) {
-		moveVec[2] = -moveSpeed;
-	}
-	if (current & kButtonLeft) {
-		moveVec[0] = -moveSpeed;
-	}
-	if (current & kButtonRight) {
-		moveVec[0] = moveSpeed;
-	}
-	if (current & kButtonA) {
-		moveVec[1] = moveSpeed;
-	}
-	if (current & kButtonB) {
-		moveVec[1] = -moveSpeed;
-	}
-	glm_vec2_normalize(moveVec);
-	camera_move_forward(camera, moveVec[2]);
-	camera_move_right(camera, moveVec[0]);
-	camera_move_up(camera, moveVec[1]);	
-
-	versor submarine_versor;
-	get_orientation_from_input(pd, submarine_versor, 1, 2, 1);
-
-	scene_object_set_rotation(submarineObj, submarine_versor);
-	scene_object_set_position(submarineObj, camera->m_eye_position);
 	
 
 	scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
