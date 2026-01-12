@@ -524,9 +524,10 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             float x3 = (clip3[0] * inv_w3 + 1.0f) * hw;
             float y3 = (1.0f - clip3[1] * inv_w3) * hh;
 
-            float z1 = -inv_w1 / view_pos1[2];
-            float z2 = -inv_w2 / view_pos2[2];
-            float z3 = -inv_w3 / view_pos3[2];
+            // After projection and screen transform
+            float z1 = 1.0f / -view_pos1[2];  // Use reciprocal of view Z
+            float z2 = 1.0f / -view_pos2[2];
+            float z3 = 1.0f / -view_pos3[2];
 
             float min_x = min3(x1, x2, x3);
             float max_x = max3(x1, x2, x3);
@@ -581,9 +582,11 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 }
 
                 left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
-                left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
+                //left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
+                left_edge->z += left_edge->dz;
                 right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
-                right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
+                //right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
+                right_edge->z += right_edge->dz;
             }
 
             /* Rasterize bottom half (v2 to v3) */
@@ -603,9 +606,11 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 }
 
                 left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
-                left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
+                //left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
+                left_edge->z += left_edge->dz;
                 right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
-                right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
+                //right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
+                right_edge->z += right_edge->dz;
             }
         }
     }
