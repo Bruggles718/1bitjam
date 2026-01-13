@@ -484,7 +484,7 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         };
 
         ClipVert vout[6];
-        int tri_count = clip_triangle_near(vin, vout, -0.1f); // your near plane
+        int tri_count = clip_triangle_near(vin, vout, -NEAR_PLANE); // your near plane
         
         
 
@@ -551,8 +551,8 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             EdgeData edge_short2; /* v2 to v3 (short edge 2) */
 
             /* Don't clamp y_min/y_max initially - use original values */
-            int y_top = (int)ceilf(y1);
-            int y_bottom = (int)floorf(y3);
+            int y_top = max_int(0, (int)ceilf(y1));
+            int y_bottom = min_int(SCREEN_HEIGHT - 1, (int)floorf(y3));
 
             /* Setup edges with original values */
             setup_edge(&edge_long, x1, y1, z1, x3, y3, z3);
@@ -569,6 +569,16 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
 
             for (int y = y_top; y < y_mid; y++) {
+                
+                float lt = ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start);
+                left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, lt);
+                left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, lt);
+                //left_edge->z += left_edge->dz;
+                float rt = ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start);
+                right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, rt);
+                right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, rt);
+                //right_edge->z += right_edge->dz;
+                
                 /* Draw left edge if it's the short edge, right edge if it's the short edge */
                 int draw_left = !middle_is_right;  /* short edge on left */
                 int draw_right = middle_is_right;   /* short edge on right */
@@ -580,13 +590,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                         left_edge->z, right_edge->z, brightness,
                         1, 1);
                 }
-
-                left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
-                left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
-                //left_edge->z += left_edge->dz;
-                right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
-                right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
-                //right_edge->z += right_edge->dz;
             }
 
             /* Rasterize bottom half (v2 to v3) */
@@ -594,6 +597,17 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             right_edge = middle_is_right ? &edge_short2 : &edge_long;
 
             for (int y = y_mid; y <= y_bottom; y++) {
+
+                float lt = ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start);
+                left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, lt);
+                left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, lt);
+                //left_edge->z += left_edge->dz;
+                float rt = ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start);
+                right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, rt);
+                right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, rt);
+                //right_edge->z += right_edge->dz;
+
+
                 /* Draw left edge if it's the short edge, right edge if it's the short edge */
                 int draw_left = !middle_is_right;  /* short edge on left */
                 int draw_right = middle_is_right;   /* short edge on right */
@@ -604,13 +618,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                         left_edge->z, right_edge->z, brightness,
                         1, 1);
                 }
-
-                left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
-                left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start));
-                //left_edge->z += left_edge->dz;
-                right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
-                right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start));
-                //right_edge->z += right_edge->dz;
             }
         }
     }
@@ -880,7 +887,7 @@ void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd,
     /* Create perspective matrix */
     mat4 perspective;
     glm_perspective(glm_rad(45.0f), (float)SCREEN_WIDTH/(float)SCREEN_HEIGHT,
-                   0.1f, 1000.0f, perspective);
+                   NEAR_PLANE, 1000.0f, perspective);
     
     /* Draw */
     vertex_data_draw_scanline(obj->m_vertex_data, pd, model, view, perspective, depth_buffer, T);
