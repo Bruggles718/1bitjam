@@ -4,6 +4,7 @@
 #include "cglm/cglm.h"
 #include "cglm/struct.h"
 #include "vector.h"
+#include "utils.h"
 
 typedef struct Span {
     float x_start;
