@@ -6,23 +6,8 @@
 #include "vector.h"
 #include "Camera.h"
 #include "pd_api.h"
-
-#define PIXEL_SCALE 1
-
-#define NEAR_PLANE 0.1f
-
-#define SCREEN_WIDTH (LCD_COLUMNS / PIXEL_SCALE)
-#define SCREEN_HEIGHT (LCD_ROWS / PIXEL_SCALE)
-
-void setPixel(PlaydateAPI* pd, int x, int y, int color);
-
-typedef struct BayerMatrix {
-    float** data;
-    int size;
-} BayerMatrix;
-
-void bayer_matrix_destroy(BayerMatrix* matrix);
-BayerMatrix bayer_matrix_create(int n);
+#include "ScreenGlobals.h"
+#include "utils.h"
 
 /* Forward declarations */
 typedef struct Camera Camera;

@@ -4,14 +4,11 @@
 // #include <cglm/gtc/type_ptr.h>
 #include <math.h>
 #include <assert.h>
+#include <cglm/struct.h>
 
 extern LCDBitmap* frame_buffer;
 extern uint8_t* fb_data;
 extern int rowbytes;
-
-typedef struct {
-    float x, y, z;
-} ClipVert;
 
 /* ===== Helper Functions ===== */
 
@@ -255,23 +252,10 @@ static inline void setup_edge(EdgeData* edge, float x1, float y1, float z1,
     edge->z = z1 + edge->dz * prestep;
 }
 
-#define samplepixel(data, x, y, rowbytes) (((data[(y)*rowbytes+(x)/8] & (1 << (uint8_t)(7 - ((x) % 8)))) != 0) ? kColorWhite : kColorBlack)
-
-// Set the pixel at x, y to black.
-#define setpixel(data, x, y, rowbytes) (data[(y)*rowbytes+(x)/8] &= ~(1 << (uint8_t)(7 - ((x) % 8))))
-
-// Set the pixel at x, y to white.
-#define clearpixel(data, x, y, rowbytes) (data[(y)*rowbytes+(x)/8] |= (1 << (uint8_t)(7 - ((x) % 8))))
-
-// Set the pixel at x, y to the specified color.
-#define drawpixel(data, x, y, rowbytes, color) (((color) == kColorBlack) ? setpixel((data), (x), (y), (rowbytes)) : clearpixel((data), (x), (y), (rowbytes)))
-
 void setPixel(PlaydateAPI* pd, int x, int y, int color) {
     if (x >= SCREEN_WIDTH || x < 0 || y > SCREEN_HEIGHT || y < 0) return;
     drawpixel(fb_data, x, y, rowbytes, color);
 }
-
-#define lerp(a, b, t) (a + t * (b - a))
 
 /* Fill a horizontal span with integrated edge drawing */
 static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
@@ -326,11 +310,11 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
     }
 }
 
-static ClipVert intersect_near(ClipVert a, ClipVert b, float near_z)
+static vec3s intersect_near(vec3s a, vec3s b, float near_z)
 {
     float t = (near_z - a.z) / (b.z - a.z);
 
-    ClipVert r;
+    vec3s r;
     r.x = a.x + (b.x - a.x) * t;
     r.y = a.y + (b.y - a.y) * t;
     r.z = near_z;
@@ -338,8 +322,8 @@ static ClipVert intersect_near(ClipVert a, ClipVert b, float near_z)
 }
 
 int clip_triangle_near(
-    ClipVert in[3],
-    ClipVert out[6],
+    vec3s in[3],
+    vec3s out[6],
     float near_z)
 {
     int inside[3];
@@ -369,9 +353,9 @@ int clip_triangle_near(
         int i1 = (i0 + 1) % 3;
         int i2 = (i0 + 2) % 3;
 
-        ClipVert v0 = in[i0];
-        ClipVert v1 = intersect_near(v0, in[i1], near_z);
-        ClipVert v2 = intersect_near(v0, in[i2], near_z);
+        vec3s v0 = in[i0];
+        vec3s v1 = intersect_near(v0, in[i1], near_z);
+        vec3s v2 = intersect_near(v0, in[i2], near_z);
 
         out[0] = v0;
         out[1] = v1;
@@ -384,10 +368,10 @@ int clip_triangle_near(
     int i1 = (i0 + 1) % 3;
     int i2 = (i0 + 2) % 3;
 
-    ClipVert v0 = in[i1]; // real v0
-    ClipVert v1 = in[i2]; // real v1
-    ClipVert v2 = intersect_near(v0, in[i0], near_z); // new v2
-    ClipVert v3 = intersect_near(v1, in[i0], near_z); // new v3
+    vec3s v0 = in[i1]; // real v0
+    vec3s v1 = in[i2]; // real v1
+    vec3s v2 = intersect_near(v0, in[i0], near_z); // new v2
+    vec3s v3 = intersect_near(v1, in[i0], near_z); // new v3
 
     /* split quad into 2 triangles */
     out[0] = v0;
@@ -477,13 +461,13 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
 
         float brightness = (ny + len) * 0.5f / len;
 
-        ClipVert vin[3] = {
+        vec3s vin[3] = {
             { view_pos1[0], view_pos1[1], view_pos1[2] },
             { view_pos2[0], view_pos2[1], view_pos2[2] },
             { view_pos3[0], view_pos3[1], view_pos3[2] }
         };
 
-        ClipVert vout[6];
+        vec3s vout[6];
         int tri_count = clip_triangle_near(vin, vout, -NEAR_PLANE); // your near plane
         
         
@@ -493,9 +477,9 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
 
         for (int t = 0; t < tri_count; t++) {
 
-            ClipVert a = vout[t * 3 + 0];
-            ClipVert b = vout[t * 3 + 1];
-            ClipVert c = vout[t * 3 + 2];
+            vec3s a = vout[t * 3 + 0];
+            vec3s b = vout[t * 3 + 1];
+            vec3s c = vout[t * 3 + 2];
 
             /* Use a,b,c as your new triangle */
             /* Continue pipeline from here */
@@ -955,6 +939,7 @@ float triangle_area(vec3 world_pos1, vec3 world_pos2, vec3 world_pos3) {
 
     float normal_mag = vec3_magnitude(nx, ny, nz);
     float full_area = normal_mag / 2;
+    return full_area;
 }
 
 bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float distance) {

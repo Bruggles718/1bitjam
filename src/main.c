@@ -14,7 +14,36 @@
 #include "SceneObject.h"
 #include "Camera.h"
 #include "WFObjLoader.h"
+#include "ScreenGlobals.h"
 
+void _close(void)
+{
+}
+void _lseek(void)
+{
+
+}
+void _read(void)
+{
+}
+void _write(void)
+{
+}
+void _fstat(void)
+{
+}
+void _getpid(void)
+{
+}
+void _isatty(void)
+{
+}
+void _kill(void)
+{
+}
+void abort(void) {}
+void _exit(void) {}
+void _fini(void) {}
 
 static int update(void* userdata);
 const char* fontpath = "/System/Fonts/Asheville-Sans-14-Bold.pft";
