@@ -58,28 +58,52 @@ void simple_insert(Vector* list, span_t* s, span_t* current, int index) {
     span_t left;
     span_t middle;
     span_t right;
-    if (is_fully_front(s, current)) { // s fully in front
+    
+    //vector_insert(list, index, &right);
+    //vector_insert(list, index, &middle);
+    //vector_insert(list, index, &left);
+    bool s_in_current = (s->x_start >= current->x_start) && (s->x_end <= current->x_end);
+    bool current_in_s = (current->x_start >= s->x_start) && (current->x_end <= s->x_end);
+    bool s_in_front = is_fully_front(s, current);
+    if (s_in_front && s_in_current) { // s fully in front
         left = *current;
         right = left;
         clip_span(&left, left.x_start, s->x_start);
         clip_span(&right, s->x_end, right.x_end);
         middle = *s;
+        vector_erase(list, index);
+        insert_span(list, &right);
+        insert_span(list, &middle);
+        insert_span(list, &left);
     }
-    else {
+    else if (!s_in_front && current_in_s) {
         left = *s;
         right = left;
         clip_span(&left, left.x_start, current->x_start);
         clip_span(&right, current->x_end, right.x_end);
         middle = *current;
+        vector_erase(list, index);
+        //vector_insert(list, index, &right);
+        //vector_insert(list, index, &middle);
+        //vector_insert(list, index, &left);
+        insert_span(list, &right);
+        insert_span(list, &middle);
+        insert_span(list, &left);
     }
-    vector_erase(list, index);
-    //vector_insert(list, index, &right);
-    //vector_insert(list, index, &middle);
-    //vector_insert(list, index, &left);
+    else if (!s_in_front && s_in_current) {
+        return;
+    }
+    else if (s_in_front && current_in_s) {
+        /**current = *s;*/
+        vector_erase(list, index);
+        insert_span(list, s);
+    }
+    
+    
 
-    insert_span(list, &right);
-    insert_span(list, &middle);
-    insert_span(list, &left);
+    //insert_span(list, &right);
+    //insert_span(list, &middle);
+    //insert_span(list, &left);
 }
 
 void overlap_right_insert(Vector* list, span_t* s, span_t *current, int index) {
@@ -201,11 +225,15 @@ static inline int min_int(int a, int b) {
 }
 
 void draw_span(span_t *span, int y, PlaydateAPI* pd, BayerMatrix *T) {
+    int line_thickness = 1;
+
     int x_start = max_int(0, min_int(SCREEN_WIDTH - 1, (int)ceilf(span->x_start)));
     int x_end = max_int(0, min_int(SCREEN_WIDTH - 1, (int)floorf(span->x_end)));
     // draw start and end black always
-    setPixel(pd, x_start, y, kColorBlack);
-    setPixel(pd, x_end, y, kColorBlack);
+    for (int i = 0; i < line_thickness; i++) {
+        setPixel(pd, x_start + i, y, kColorBlack);
+        setPixel(pd, x_end - i, y, kColorBlack);
+    }
     vec3s norm = span->normal;
     float len = sqrtf(norm.x * norm.x + norm.y * norm.y + norm.z * norm.z);
     float brightness = 1;
@@ -214,7 +242,7 @@ void draw_span(span_t *span, int y, PlaydateAPI* pd, BayerMatrix *T) {
     }
     int bayer_y = y & 7;
     int bayer_x = x_start & 7;
-    for (int x = x_start + 1; x < x_end - 1; x += 1, bayer_x = (bayer_x + 1) & 7) {
+    for (int x = x_start + line_thickness; x < x_end - line_thickness; x += 1, bayer_x = (bayer_x + 1) & 7) {
         // draw pixel
         int color = (brightness > T->data[bayer_y][bayer_x]) ? kColorWhite : kColorBlack;
         setPixel(pd, x, y, color);
