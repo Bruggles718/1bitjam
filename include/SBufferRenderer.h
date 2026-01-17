@@ -16,6 +16,8 @@ typedef struct Span {
 
 void insert_span(Vector *list, span_t *s);
 
+void insert_span_intersect_override(Vector* list, span_t* s, bool ov);
+
 float orient(vec2s a, vec2s b, vec2s c);
 
 bool intersection(vec2s a1, vec2s a2, vec2s b1, vec2s b2, vec2s *out);

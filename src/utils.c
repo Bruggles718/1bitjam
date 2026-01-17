@@ -5,5 +5,6 @@ float lerp(float a, float b, float t) {
 }
 
 float calc_percentage(float start, float end, float x) {
+    if (fabsf(end - start) < 1e-6f) return 0;
     return (x - start) / (end - start);
 }

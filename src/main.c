@@ -15,6 +15,7 @@
 #include "Camera.h"
 #include "WFObjLoader.h"
 #include "ScreenGlobals.h"
+#include "SBufferRenderer.h"
 
 void _close(void)
 {
@@ -59,11 +60,25 @@ LCDBitmap* frame_buffer;
 uint8_t* fb_data;
 int rowbytes;
 
+Vector sbuffer[LCD_ROWS];
+
 void initialize_depth_buffer() {
 	int size = SCREEN_WIDTH * SCREEN_HEIGHT;
 	for (int i = 0; i < size; i += 1) {
 		float ni = -INFINITY;
 		vector_push_back(depth_buffer, &ni);
+	}
+}
+
+void initialize_sbuffer() {
+	for (int i = 0; i < LCD_ROWS; i += 1) {
+		vector_setup(&(sbuffer[i]), 10, sizeof(span_t));
+	}
+}
+
+void clear_sbuffer() {
+	for (int i = 0; i < LCD_ROWS; i += 1) {
+		sbuffer[i].size = 0;
 	}
 }
 
@@ -104,6 +119,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		depth_buffer = (Vector*)malloc(sizeof(Vector));
 		vector_setup(depth_buffer, SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(float));
 		initialize_depth_buffer();
+		initialize_sbuffer();
 
 		bayer_matrix = (BayerMatrix*)malloc(sizeof(BayerMatrix));
 		*bayer_matrix = bayer_matrix_create(512);
@@ -300,11 +316,18 @@ void control_object(PlaydateAPI* pd, SceneObject* sub) {
 
 }
 
+void draw_sbuffer(PlaydateAPI *pd) {
+	for (int i = 0; i < LCD_ROWS; i += 1) {
+		draw_scanline(&(sbuffer[i]), i, pd, bayer_matrix);
+	}
+}
+
 
 
 static int update(void* userdata)
 {
-	reset_depth_buffer();
+	//reset_depth_buffer();
+	clear_sbuffer();
 	PlaydateAPI* pd = userdata;
 	// pd->system->logToConsole("db val: %f", VECTOR_GET_AS(float, depth_buffer, 0));
 
@@ -316,9 +339,12 @@ static int update(void* userdata)
 
 	
 
-	scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
-	scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);
+	/*scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
+	scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);*/
+	scene_object_fill_sbuffer(submarineObj, camera, pd, sbuffer, bayer_matrix);
+	scene_object_fill_sbuffer(mapObj, camera, pd, sbuffer, bayer_matrix);
 	//pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
+	draw_sbuffer(pd);
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
 	//pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);
 	pd->system->drawFPS(0, 0);

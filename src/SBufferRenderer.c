@@ -19,7 +19,7 @@ bool intersection(vec2s a1, vec2s a2, vec2s b1, vec2s b2, vec2s *out) {
         *out = glms_vec2_scale((glms_vec2_sub(glms_vec2_scale(a1, ob), glms_vec2_scale(a2, oa))), 1 / denom); 
         return true;
     }
-    return false; 
+    return false;
 }
 
 void clip_span(span_t *s, float new_x_start, float new_x_end) {
@@ -36,94 +36,106 @@ void clip_span(span_t *s, float new_x_start, float new_x_end) {
         s->z_end = lerp(s->z_end, s->z_start, new_x_percentage);
         s->x_end = new_x_end;
     }
-    
 }
 
-void attempt_span_insert(Vector *list, span_t *s, int index) {
-    if (index > list->size) return;
-    span_t *current = &VECTOR_GET_AS(span_t, list, index);
-    if (s->x_start >= current->x_start) {
-        // case1:
-        // cccccc
-        //    ssssss
-        // case 2:
-        // cccccc
-        //  ssss
+float calc_z_at_x(span_t* s, float x) {
+    float x_percentage = calc_percentage(s->x_start, s->x_end, x);
+    return lerp(s->z_start, s->z_end, x_percentage);
+}
 
-        // if no intersection:
-        //   determine which is in front, 
-        // if s in front:
-        //   clamp the left side, add a new right segment 
-        //   from s->x_end to current.x_end assuming current.x_end > s->x_end.
-        //   interpolate z value and normal
-        // if current in front:
-        //   add segment to the right of current going from current.x_end to s->x_end
-        //   assuming s->x_end > current.x_end.
-        //   interpolate z value and normal
+bool is_fully_front(span_t* a, span_t* b) {
+    return ((a->z_start > b->z_start) && (a->z_end > b->z_end));
+}
 
-        vec2s s1 = {s->x_start, s->z_start};
-        vec2s s2 = {s->x_end, s->z_end};
-        vec2s current1 = {current->x_start, current->z_start};
-        vec2s current2 = {current->x_end, current->z_end};
-        vec2s p;
+bool span_in_bounds(span_t* s) {
+    return (s->x_start < SCREEN_WIDTH&& s->x_end >= 0);
+}
 
-        bool lines_intersect = intersection(s1, s2, current1, current2, &p);
+// should be called only when determined that there is full overlap, but no intersection point
+// cccccc
+//  ssss
+void simple_insert(Vector* list, span_t* s, span_t* current, int index) {
+    span_t left;
+    span_t middle;
+    span_t right;
+    if (is_fully_front(s, current)) { // s fully in front
+        left = *current;
+        right = left;
+        clip_span(&left, left.x_start, s->x_start);
+        clip_span(&right, s->x_end, right.x_end);
+        middle = *s;
+    }
+    else {
+        left = *s;
+        right = left;
+        clip_span(&left, left.x_start, current->x_start);
+        clip_span(&right, current->x_end, right.x_end);
+        middle = *current;
+    }
+    vector_erase(list, index);
+    //vector_insert(list, index, &right);
+    //vector_insert(list, index, &middle);
+    //vector_insert(list, index, &left);
 
-        if (!lines_intersect || glms_vec2_eqv_eps(p, s1) || glms_vec2_eqv_eps(p, s2) || glms_vec2_eqv_eps(p, current1) || glms_vec2_eqv_eps(p, current2)) {
-            if (s->z_start < current->z_start) { // s in front
-                if (s->x_end <= current->x_end) {
-                    // split current into left and right and place s in the middle
-                    span_t right = *current;
-                    clip_span(&right, s->x_end, right.x_end);
-                    clip_span(current, current->x_start, s->x_start);
-                    int new_idx = index + 1;
-                    vector_insert(list, new_idx, &right);
-                    vector_insert(list, new_idx, s);
-                    return;
-                } else {
-                    clip_span(current, current->x_start, s->x_start);
-                    attempt_span_insert(list, s, index + 1);
-                    return;
-                }
-            } else {
-                if (s->x_end <= current->x_end) {
-                    // s fully behind, throw it out
-                    return;
-                } else {
-                    // clip span to end of current and re attempt insertion
-                    clip_span(s, current->x_end, s->x_end);
-                    attempt_span_insert(list, s, index + 1);
-                    return;
-                }
+    insert_span(list, &right);
+    insert_span(list, &middle);
+    insert_span(list, &left);
+}
+
+void overlap_right_insert(Vector* list, span_t* s, span_t *current, int index) {
+    span_t left = *current;
+    span_t right = *s;
+    if (is_fully_front(s, current)) { // s fully in front
+        clip_span(&left, left.x_start, s->x_start);
+    }
+    else {
+        clip_span(&right, current->x_end, right.x_end);
+    }
+    vector_erase(list, index);
+    insert_span(list, &right);
+    insert_span(list, &left);
+}
+
+void intersect_split_insert(Vector *list, span_t *s, span_t* current, int index, bool ov) {
+    vec2s s1 = { s->x_start, s->z_start };
+    vec2s s2 = { s->x_end, s->z_end };
+    vec2s current1 = { current->x_start, current->z_start };
+    vec2s current2 = { current->x_end, current->z_end };
+    vec2s p;
+    bool lines_intersect = intersection(s1, s2, current1, current2, &p);
+    if (ov || !lines_intersect) {
+        bool s_in_current = (s->x_start >= current->x_start) && (s->x_end <= current->x_end);
+        bool current_in_s = (current->x_start >= s->x_start) && (current->x_end <= s->x_end);
+        if (s_in_current || current_in_s) { // full overlap
+            simple_insert(list, s, current, index);
+        }
+        else { // not full overlap
+            if (s->x_start >= current->x_start) {
+                overlap_right_insert(list, s, current, index);
             }
-        } else { // intersection
-            if (s->z_start < current->z_start) { // s in front
-                span_t right_s = *s;
-                float new_x_start = current->x_end;
-                clip_span(s, s->x_start, p.x);
-                attempt_span_insert(list, s, index);
-                int new_idx = index + 3;
-                if (right_s.x_end > current->x_end) {
-                    clip_span(&right_s, new_x_start, right_s.x_end);
-                    attempt_span_insert(list, &right_s, new_idx);
-                    return;
-                }
-                return;
+            else {
+                overlap_right_insert(list, current, s, index);
             }
         }
-        
-    } else { // s->x_start < current.x_start
-        // case1:
-        // ssssss
-        //   cccccc
-        // case2:
-        // ssssss
-        //  cccc
-        attempt_span_insert(list, s, index + 1);
+    }
+    else if (lines_intersect) {
+        span_t sleft = *s;
+        span_t sright = sleft;
+        span_t cleft = *current;
+        span_t cright = cleft;
+        clip_span(&sleft, sleft.x_start, p.x);
+        clip_span(&sright, p.x, sright.x_end);
+        clip_span(&cleft, cleft.x_start, p.x);
+        clip_span(&cright, p.x, cright.x_end);
+        vector_erase(list, index);
+        insert_span_intersect_override(list, &cleft, true);
+        insert_span_intersect_override(list, &cright, true);
+        insert_span_intersect_override(list, &sleft, true);
+        insert_span_intersect_override(list, &sright, true);
     }
 }
 
-void binary_insert(Vector *list, span_t *s, int low, int high) {
+void binary_insert(Vector *list, span_t *s, int low, int high, bool ov) {
     span_t *current;
     while (true) {
         if (low > high) {
@@ -139,25 +151,45 @@ void binary_insert(Vector *list, span_t *s, int low, int high) {
         int mid = (low + high) / 2;
         current = &VECTOR_GET_AS(span_t, list, mid);
 
-        if (s->x_start > current->x_end) {
+        if (s->x_start >= current->x_end) {
             low = mid + 1;
-        } else if (s->x_end < current->x_start) {
+        } else if (s->x_end <= current->x_start) {
             high = mid - 1;
         } else {
-            attempt_span_insert(list, s, mid);
+            intersect_split_insert(list, s, current, mid, ov);
             return;
         }
     }
 }
 
-void insert_span(Vector *list, span_t *s) {
-    if (s->x_start > SCREEN_WIDTH) {
+bool bad_float(float f) {
+    return (isnan(f) || !isfinite(f));
+}
+
+float clamp_to_screen_x(float f) {
+    return fmaxf(0, fminf(f, SCREEN_WIDTH - 1));
+}
+
+void insert_span_intersect_override(Vector* list, span_t* s, bool ov) {
+    if (s->x_start >= SCREEN_WIDTH) {
         return;
     }
     if (s->x_end < 0) {
         return;
     }
-    binary_insert(list, s, 0, list->size - 1);
+    clip_span(s, clamp_to_screen_x(s->x_start), clamp_to_screen_x(s->x_end));
+    if (fabsf(s->x_end - s->x_start) < 1e-2f) {
+        return;
+    }
+    if (s->x_start >= s->x_end) {
+        return;
+    }
+    if (bad_float(s->x_start) || bad_float(s->x_end) || bad_float(s->z_start) || bad_float(s->z_end)) return;
+    binary_insert(list, s, 0, list->size - 1, ov);
+}
+
+void insert_span(Vector *list, span_t *s) {
+    insert_span_intersect_override(list, s, false);
 }
 
 static inline int max_int(int a, int b) {
@@ -176,7 +208,10 @@ void draw_span(span_t *span, int y, PlaydateAPI* pd, BayerMatrix *T) {
     setPixel(pd, x_end, y, kColorBlack);
     vec3s norm = span->normal;
     float len = sqrtf(norm.x * norm.x + norm.y * norm.y + norm.z * norm.z);
-    float brightness = (norm.y + len) * 0.5f / len;
+    float brightness = 1;
+    if (len >= 1e-6f) {
+        brightness = (norm.y + len) * 0.5f / len;
+    }
     int bayer_y = y & 7;
     int bayer_x = x_start & 7;
     for (int x = x_start + 1; x < x_end - 1; x += 1, bayer_x = (bayer_x + 1) & 7) {
