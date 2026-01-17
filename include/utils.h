@@ -28,4 +28,8 @@ float lerp(float a, float b, float t);
 
 float calc_percentage(float start, float end, float x);
 
+bool bad_float(float f);
+
+float clamp_to_screen_x(float f);
+
 #endif
