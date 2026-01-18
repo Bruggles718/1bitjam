@@ -253,7 +253,7 @@ void insert_span_intersect_override(Vector* list, span_t* s, bool ov) {
     //if (s->x_start >= s->x_end) {
     //    return;
     //}
-    //if (bad_float(s->x_start) || bad_float(s->x_end) || bad_float(s->z_start) || bad_float(s->z_end)) return;
+    if (bad_float(s->x_start) || bad_float(s->x_end) || bad_float(s->z_start) || bad_float(s->z_end)) return;
     binary_insert(list, s, 0, list->size - 1, ov);
 }
 
