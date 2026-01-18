@@ -13,7 +13,7 @@ bool intersection(vec2s a1, vec2s a2, vec2s b1, vec2s b2, vec2s *out) {
         oc = orient(a1,a2,b1),            
         od = orient(a1,a2,b2);      
     // Proper intersection exists iff opposite signs  
-    if (oa*ob < 0 && oc*od < 0) {
+    if (oa * ob < -1e-6f && oc * od < -1e-6f) {
         float denom = (ob - oa);
         if (fabsf(denom) < 1e-6f) return false;
         *out = glms_vec2_scale((glms_vec2_sub(glms_vec2_scale(a1, ob), glms_vec2_scale(a2, oa))), 1 / denom); 
@@ -28,31 +28,40 @@ bool intersection_span(span_t* a, span_t* b, vec2s* out) {
     float oc = (a->x_end - a->x_start) * (b->z_start - a->z_start) - (a->z_end - a->z_start) * (b->x_start - a->x_start);
     float od = (a->x_end - a->x_start) * (b->z_end - a->z_start) - (a->z_end - a->z_start) * (b->x_end - a->x_start);
 
-    if (oa * ob < 0 && oc * od < 0) {
+    if (oa * ob < -1e-6f && oc * od < -1e-6f) {
         float denom = ob - oa;
-        if (fabsf(denom) < 1e-6f) return false;
+        float epsilon = 1e-6f;
+        if (fabsf(denom) < epsilon) return false;
         out->x = (a->x_start * ob - a->x_end * oa) / denom;
         out->y = (a->z_start * ob - a->z_end * oa) / denom;
+        if (fabsf(out->x - a->x_start) < epsilon) return false;
+        if (fabsf(out->x - a->x_end) < epsilon) return false;
+        if (fabsf(out->x - b->x_start) < epsilon) return false;
+        if (fabsf(out->x - b->x_end) < epsilon) return false;
         return true;
     }
     return false;
 }
 
 
-void clip_span(span_t *s, float new_x_start, float new_x_end) {
+bool clip_span(span_t *s, float new_x_start, float new_x_end) {
     // add normal interpolation eventually
+    bool result = false;
     if (new_x_start > s->x_start) {
         float old_x_start = s->x_start;
         float new_x_percentage = calc_percentage(old_x_start, s->x_end, new_x_start);
         s->z_start = lerp(s->z_start, s->z_end, new_x_percentage);
         s->x_start = new_x_start;
+        result = true;
     }
     if (new_x_end < s->x_end) {
         float old_x_end = s->x_end;
         float new_x_percentage = calc_percentage(old_x_end, s->x_start, new_x_end);
         s->z_end = lerp(s->z_end, s->z_start, new_x_percentage);
         s->x_end = new_x_end;
+        result = true;
     }
+    return result;
 }
 
 float calc_z_at_x(span_t* s, float x) {
@@ -61,7 +70,9 @@ float calc_z_at_x(span_t* s, float x) {
 }
 
 bool is_fully_front(span_t* a, span_t* b) {
-    return ((a->z_start > b->z_start) && (a->z_end > b->z_end));
+    float a_z_start_at = calc_z_at_x(a, b->x_start);
+    float a_z_end_at = calc_z_at_x(a, b->x_end);
+    return ((a_z_start_at >= b->z_start) && (a_z_end_at >= b->z_end));
 }
 
 bool span_in_bounds(span_t* s) {
@@ -82,19 +93,19 @@ void simple_insert(Vector* list, span_t* s, span_t* current, int index) {
     bool s_in_current = (s->x_start >= current->x_start) && (s->x_end <= current->x_end);
     bool current_in_s = (current->x_start >= s->x_start) && (current->x_end <= s->x_end);
     bool s_in_front = is_fully_front(s, current);
-    if (s_in_front && s_in_current) { // s fully in front
+    //bool current_in_front = is_fully_front(current, s);
+    if (s_in_current && s_in_front) { // s fully in front
         left = *current;
         right = left;
         clip_span(&left, left.x_start, s->x_start);
         clip_span(&right, s->x_end, right.x_end);
         middle = *s;
-        int lIdx = index - 1;
         vector_erase(list, index);
         insert_span(list, &right);
         insert_span(list, &middle);
         insert_span(list, &left);
     }
-    else if (!s_in_front && current_in_s) {
+    else if (current_in_s && !s_in_front) {
         left = *s;
         right = left;
         clip_span(&left, left.x_start, current->x_start);
@@ -105,10 +116,10 @@ void simple_insert(Vector* list, span_t* s, span_t* current, int index) {
         insert_span(list, &middle);
         insert_span(list, &left);
     }
-    else if (!s_in_front && s_in_current) {
+    else if (s_in_current && !s_in_front) {
         return;
     }
-    else if (s_in_front && current_in_s) {
+    else if (current_in_s && s_in_front) {
         /**current = *s;*/
         vector_erase(list, index);
         insert_span(list, s);
@@ -121,11 +132,17 @@ void simple_insert(Vector* list, span_t* s, span_t* current, int index) {
     //insert_span(list, &left);
 }
 
+bool is_fully_front_overlap(span_t* a, span_t* b) {
+    float b_z_start_at = calc_z_at_x(b, a->x_start);
+    float a_z_end_at = calc_z_at_x(a, b->x_end);
+    return ((a->z_start >= b_z_start_at) && (a_z_end_at >= b->z_end));
+}
+
 void overlap_right_insert(Vector* list, span_t* s, span_t *current, int index) {
     span_t left = *current;
     span_t right = *s;
-    if (is_fully_front(s, current)) { // s fully in front
-        clip_span(&left, left.x_start, s->x_start);
+    if (is_fully_front_overlap(s, current)) { // s fully in front
+        clip_span(&left, left.x_start, right.x_start);
     }
     else {
         clip_span(&right, current->x_end, right.x_end);
@@ -138,7 +155,11 @@ void overlap_right_insert(Vector* list, span_t* s, span_t *current, int index) {
 
 void intersect_split_insert(Vector *list, span_t *s, span_t* current, int index, bool ov) {
     vec2s p;
-    bool lines_intersect = intersection_span(s, current, &p);
+    vec2s s1 = { s->x_start, s->z_start };
+    vec2s s2 = { s->x_end, s->z_end };
+    vec2s current1 = { current->x_start, current->z_start };
+    vec2s current2 = { current->x_end, current->z_end };
+    bool lines_intersect = intersection(s1, s2, current1, current2, &p);
     if (ov || !lines_intersect) {
         bool s_in_current = (s->x_start >= current->x_start) && (s->x_end <= current->x_end);
         bool current_in_s = (current->x_start >= s->x_start) && (current->x_end <= s->x_end);
@@ -159,15 +180,31 @@ void intersect_split_insert(Vector *list, span_t *s, span_t* current, int index,
         span_t sright = sleft;
         span_t cleft = *current;
         span_t cright = cleft;
-        clip_span(&sleft, sleft.x_start, p.x);
-        clip_span(&sright, p.x, sright.x_end);
+        bool l_clipped = clip_span(&sleft, sleft.x_start, p.x);
+        bool r_clipped = clip_span(&sright, p.x, sright.x_end);
         clip_span(&cleft, cleft.x_start, p.x);
         clip_span(&cright, p.x, cright.x_end);
         vector_erase(list, index);
         insert_span_intersect_override(list, &cleft, true);
         insert_span_intersect_override(list, &cright, true);
-        insert_span_intersect_override(list, &sleft, true);
-        insert_span_intersect_override(list, &sright, true);
+        if (l_clipped) insert_span_intersect_override(list, &sleft, false);
+        if (r_clipped) insert_span_intersect_override(list, &sright, false);
+    }
+}
+
+void split_insert(Vector* list, span_t* s, span_t* current, int index) {
+    bool s_in_current = (s->x_start >= current->x_start) && (s->x_end <= current->x_end);
+    bool current_in_s = (current->x_start >= s->x_start) && (current->x_end <= s->x_end);
+    if (s_in_current || current_in_s) { // full overlap
+        simple_insert(list, s, current, index);
+    }
+    else { // not full overlap
+        if (s->x_start >= current->x_start) {
+            overlap_right_insert(list, s, current, index);
+        }
+        else {
+            overlap_right_insert(list, current, s, index);
+        }
     }
 }
 
@@ -194,7 +231,8 @@ void binary_insert(Vector *list, span_t *s, int low, int high, bool ov) {
         } else if (s->x_end <= current->x_start) {
             high = mid - 1;
         } else {
-            intersect_split_insert(list, s, current, mid, ov);
+            //intersect_split_insert(list, s, current, mid, ov);
+            split_insert(list, s, current, mid);
             return;
         }
     }
@@ -207,14 +245,15 @@ void insert_span_intersect_override(Vector* list, span_t* s, bool ov) {
     if (s->x_end < 0) {
         return;
     }
+    // uncommenting this fixes it???
     //clip_span(s, clamp_to_screen_x(s->x_start), clamp_to_screen_x(s->x_end));
-    //if (fabsf(s->x_end - s->x_start) < 1e-2f) {
-    //    return;
-    //}
+    if (fabsf(s->x_end - s->x_start) < 1.0f) {
+        return;
+    }
     //if (s->x_start >= s->x_end) {
     //    return;
     //}
-    if (bad_float(s->x_start) || bad_float(s->x_end) || bad_float(s->z_start) || bad_float(s->z_end)) return;
+    //if (bad_float(s->x_start) || bad_float(s->x_end) || bad_float(s->z_start) || bad_float(s->z_end)) return;
     binary_insert(list, s, 0, list->size - 1, ov);
 }
 
