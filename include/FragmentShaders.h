@@ -1,6 +1,0 @@
-#ifndef FRAGMENTSHADERS_H
-#define FRAGMENTSHADERS_H
-
-
-
-#endif

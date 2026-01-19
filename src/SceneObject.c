@@ -949,11 +949,16 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
     const vec3 light_dir = { 0.0f, 1.0f, 0.0f };
 
     /* Process triangles (9 floats per triangle) */
-    for (size_t i = 0; i < buf_size; i += 9) {
+    for (size_t i = 0; i < buf_size; i += 18) {
         /* Load vertices */
         vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
-        vec4 pos2 = { buf[i + 3], buf[i + 4], buf[i + 5], 1.0f };
-        vec4 pos3 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+        vec3 n1 = { buf[i + 3], buf[i + 4], buf[i + 5] };
+
+        vec4 pos2 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+        vec3 n2 = { buf[i + 9], buf[i + 10], buf[i + 11] };
+
+        vec4 pos3 = { buf[i + 12], buf[i + 13], buf[i + 14], 1.0f };
+        vec3 n3 = { buf[i + 15], buf[i + 16], buf[i + 17] };
 
         /* Transform to view space for backface culling */
         vec4 view_pos1, view_pos2, view_pos3;
@@ -1074,12 +1079,12 @@ void vertex_data_draw(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 vi
         }
 
         /* Draw triangle edges */
-        draw_line_z_thick(pd, depth_buffer, (int)sx1, (int)sy1, iz0,
-            (int)sx2, (int)sy2, iz1, kColorBlack, line_thickness);
-        draw_line_z_thick(pd, depth_buffer, (int)sx2, (int)sy2, iz1,
-            (int)sx3, (int)sy3, iz2, kColorBlack, line_thickness);
-        draw_line_z_thick(pd, depth_buffer, (int)sx3, (int)sy3, iz2,
-            (int)sx1, (int)sy1, iz0, kColorBlack, line_thickness);
+        // draw_line_z_thick(pd, depth_buffer, (int)sx1, (int)sy1, iz0,
+        //     (int)sx2, (int)sy2, iz1, kColorBlack, line_thickness);
+        // draw_line_z_thick(pd, depth_buffer, (int)sx2, (int)sy2, iz1,
+        //     (int)sx3, (int)sy3, iz2, kColorBlack, line_thickness);
+        // draw_line_z_thick(pd, depth_buffer, (int)sx3, (int)sy3, iz2,
+        //     (int)sx1, (int)sy1, iz0, kColorBlack, line_thickness);
     }
 }
 
@@ -1295,10 +1300,15 @@ bool scene_object_colliding_with_point(SceneObject* obj, vec3 point, float dista
     SimpleVertexData* vd = obj->m_vertex_data;
     float* buf = (float*)vd->m_vertex_buffer.data;
     size_t buf_size = vd->m_vertex_buffer.size;
-    for (size_t i = 0; i < buf_size; i += 9) {
+    for (size_t i = 0; i < buf_size; i += 18) {
         vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
-        vec4 pos2 = { buf[i + 3], buf[i + 4], buf[i + 5], 1.0f };
-        vec4 pos3 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+        vec3 n1 = { buf[i + 3], buf[i + 4], buf[i + 5] };
+
+        vec4 pos2 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+        vec3 n2 = { buf[i + 9], buf[i + 10], buf[i + 11] };
+
+        vec4 pos3 = { buf[i + 12], buf[i + 13], buf[i + 14], 1.0f };
+        vec3 n3 = { buf[i + 15], buf[i + 16], buf[i + 17] };
 
         vec4 world_pos1, world_pos2, world_pos3;
         glm_mat4_mulv(model, pos1, world_pos1);
