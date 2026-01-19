@@ -339,12 +339,10 @@ static int update(void* userdata)
 
 	
 
-	/*scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
-	scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);*/
-	scene_object_fill_sbuffer(submarineObj, camera, pd, sbuffer, bayer_matrix);
-	scene_object_fill_sbuffer(mapObj, camera, pd, sbuffer, bayer_matrix);
+	scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
+	scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);
 	//pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
-	draw_sbuffer(pd);
+	//draw_sbuffer(pd);
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
 	//pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);
 	pd->system->drawFPS(0, 0);
