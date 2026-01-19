@@ -1193,7 +1193,7 @@ void scene_object_fill_sbuffer(SceneObject* obj, const Camera* camera, PlaydateA
     glm_perspective(glm_rad(45.0f), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT,
         NEAR_PLANE, 1000.0f, perspective);
 
-    vertex_data_add_to_sbuffer(obj->m_vertex_data, pd, model, view, perspective, sbuffer, T);
+    vertex_data_add_to_sbuffer(obj->m_vertex_data, pd, model, view, perspective, sbuffer);
 }
 
 void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd,
