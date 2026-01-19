@@ -201,7 +201,16 @@ typedef struct {
     int x_end;
     float z_start;
     float z_end;
+    vec3s normal_start;
+    vec3s normal_end;
+    vec3s normal;
 } EdgeData;
+
+typedef struct ClipVert {
+    float x, y, z;
+    float nx, ny, nz;
+} ClipVert;
+
 
 /* Sort vertices by Y coordinate */
 static inline void sort_vertices_by_y(float* v1x, float* v1y, float* v1z,
@@ -222,6 +231,25 @@ static inline void sort_vertices_by_y(float* v1x, float* v1y, float* v1z,
         float tx = *v1x, ty = *v1y, tz = *v1z;
         *v1x = *v2x; *v1y = *v2y; *v1z = *v2z;
         *v2x = tx; *v2y = ty; *v2z = tz;
+    }
+}
+
+static inline void sort_clipvert_by_y(ClipVert *v1, ClipVert *v2, ClipVert *v3) {
+    /* Bubble sort is fine for 3 elements */
+    if (v1->y > v2->y) {
+        ClipVert temp = *v1;
+        *v1 = *v2;
+        *v2 = temp;
+    }
+    if (v2->y > v3->y) {
+        ClipVert temp = *v2;
+        *v2 = *v3;
+        *v3 = temp;
+    }
+    if (v1->y > v2->y) {
+        ClipVert temp = *v1;
+        *v1 = *v2;
+        *v2 = temp;
     }
 }
 
@@ -253,6 +281,22 @@ static inline void setup_edge(EdgeData* edge, float x1, float y1, float z1,
     edge->z = z1 + edge->dz * prestep;
 }
 
+void setup_edge_clipvert(EdgeData* edge, ClipVert* v1, ClipVert* v2) {
+    edge->y_start = (int)ceilf(v1->y);
+    edge->y_end = (int)ceilf(v2->y);
+    edge->x_start = (int)ceilf(v1->x);
+    edge->x_end = (int)ceilf(v2->x);
+    edge->z_start = v1->z;
+    edge->z_end = v2->z;
+
+    edge->normal_start = (vec3s){v1->nx, v1->ny, v1->nz};
+    edge->normal_end = (vec3s){v2->nx, v2->ny, v2->nz};
+
+    edge->x = v1->x;
+    edge->z = v1->z;
+    edge->normal = (vec3s){ v1->nx, v1->ny, v1->nz };
+}
+
 void setPixel(PlaydateAPI* pd, int x, int y, int color) {
     if (x >= SCREEN_WIDTH || x < 0 || y > SCREEN_HEIGHT || y < 0) return;
     drawpixel(fb_data, x, y, rowbytes, color);
@@ -261,7 +305,7 @@ void setPixel(PlaydateAPI* pd, int x, int y, int color) {
 /* Fill a horizontal span with integrated edge drawing */
 static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
     int y, float x_left, float x_right,
-    float z_left, float z_right, float brightness,
+    float z_left, float z_right, float n_left, float n_right,
     int draw_left_edge, int draw_right_edge) {
 
     int x_start = max_int(0, (int)ceilf(x_left));
@@ -280,8 +324,13 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
     int bayer_y = y & 7;
     int bayer_x = x_start & 7;
 
-    const int edge_width = 2;  /* Change this to adjust edge thickness */
+    const int edge_width = 1;  /* Change this to adjust edge thickness */
     const float edge_depth_offset = 0.0001f;  /* Bring edges slightly closer */
+
+    float norm_diff = n_left - n_right;
+    float dn = norm_diff / span_width;
+    float current_normal = n_left + dn * prestep;
+    float brightness = (current_normal + 1) * 0.5f;
 
     for (int x = x_start; x <= x_end; x++, idx++, bayer_x = (bayer_x + 1) & 7) {
         /* Draw outer 2 pixels on each edge in black */
@@ -308,23 +357,27 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
             setPixel(pd, x, y, color);
         }
         z += dz;
+        current_normal += dn;
     }
 }
 
-static vec3s intersect_near(vec3s a, vec3s b, float near_z)
+static ClipVert intersect_near(ClipVert a, ClipVert b, float near_z)
 {
     float t = (near_z - a.z) / (b.z - a.z);
 
-    vec3s r;
+    ClipVert r;
     r.x = a.x + (b.x - a.x) * t;
     r.y = a.y + (b.y - a.y) * t;
     r.z = near_z;
+    r.nx = a.nx + (b.nx - a.nx) * t;
+    r.ny = a.ny + (b.ny - a.ny) * t;
+    r.nz = a.nz + (b.nz - a.nz) * t;
     return r;
 }
 
 int clip_triangle_near(
-    vec3s in[3],
-    vec3s out[6],
+    ClipVert in[3],
+    ClipVert out[6],
     float near_z)
 {
     int inside[3];
@@ -354,9 +407,9 @@ int clip_triangle_near(
         int i1 = (i0 + 1) % 3;
         int i2 = (i0 + 2) % 3;
 
-        vec3s v0 = in[i0];
-        vec3s v1 = intersect_near(v0, in[i1], near_z);
-        vec3s v2 = intersect_near(v0, in[i2], near_z);
+        ClipVert v0 = in[i0];
+        ClipVert v1 = intersect_near(v0, in[i1], near_z);
+        ClipVert v2 = intersect_near(v0, in[i2], near_z);
 
         out[0] = v0;
         out[1] = v1;
@@ -369,10 +422,10 @@ int clip_triangle_near(
     int i1 = (i0 + 1) % 3;
     int i2 = (i0 + 2) % 3;
 
-    vec3s v0 = in[i1]; // real v0
-    vec3s v1 = in[i2]; // real v1
-    vec3s v2 = intersect_near(v0, in[i0], near_z); // new v2
-    vec3s v3 = intersect_near(v1, in[i0], near_z); // new v3
+    ClipVert v0 = in[i1]; // real v0
+    ClipVert v1 = in[i2]; // real v1
+    ClipVert v2 = intersect_near(v0, in[i0], near_z); // new v2
+    ClipVert v3 = intersect_near(v1, in[i0], near_z); // new v3
 
     /* split quad into 2 triangles */
     out[0] = v0;
@@ -403,6 +456,15 @@ float Q_rsqrt(float number)
     return y;
 }
 
+void normalize_clipvert(ClipVert* v) {
+    float mag_sqr = v->nx * v->nx + v->ny * v->ny + v->nz * v->nz;
+    float inv_sqrt = Q_rsqrt(mag_sqr);
+    //vec3s norm = { nx * inv_sqrt, ny * inv_sqrt, nz * inv_sqrt };
+    v->nx = v->nx * inv_sqrt;
+    v->ny = v->ny * inv_sqrt;
+    v->nz = v->nz * inv_sqrt;
+}
+
 void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 model, mat4 view,
     mat4 projection, Vector* sbuffer) {
     if (!vd) return;
@@ -417,10 +479,15 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
     const float hw = SCREEN_WIDTH * 0.5f;
     const float hh = SCREEN_HEIGHT * 0.5f;
 
-    for (size_t i = 0; i < buf_size; i += 9) {
+    for (size_t i = 0; i < buf_size; i += 18) {
         vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
-        vec4 pos2 = { buf[i + 3], buf[i + 4], buf[i + 5], 1.0f };
-        vec4 pos3 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+        vec3 n1 = { buf[i + 3], buf[i + 4], buf[i + 5] };
+
+        vec4 pos2 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+        vec3 n2 = { buf[i + 9], buf[i + 10], buf[i + 11] };
+
+        vec4 pos3 = { buf[i + 12], buf[i + 13], buf[i + 14], 1.0f };
+        vec3 n3 = { buf[i + 15], buf[i + 16], buf[i + 17] };
 
         vec4 view_pos1, view_pos2, view_pos3;
         glm_mat4_mulv(mv, pos1, view_pos1);
@@ -456,46 +523,41 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
         glm_mat4_mulv(model, pos2, world_pos2);
         glm_mat4_mulv(model, pos3, world_pos3);
 
-        /* Calculate normal in world space */
-        float w_e1x = world_pos2[0] - world_pos1[0];
-        float w_e1y = world_pos2[1] - world_pos1[1];
-        float w_e1z = world_pos2[2] - world_pos1[2];
-        float w_e2x = world_pos3[0] - world_pos1[0];
-        float w_e2y = world_pos3[1] - world_pos1[1];
-        float w_e2z = world_pos3[2] - world_pos1[2];
-
-        nx = w_e1y * w_e2z - w_e1z * w_e2y;
-        ny = w_e1z * w_e2x - w_e1x * w_e2z;
-        nz = w_e1x * w_e2y - w_e1y * w_e2x;
+        
+        mat3 normal_mat;
+        glm_mat4_pick3(model, normal_mat);
+        glm_mat3_inv(normal_mat, normal_mat);
+        glm_mat3_transpose(normal_mat);
+        glm_mat3_mulv(normal_mat, n1, n1);
+        glm_mat3_mulv(normal_mat, n2, n2);
+        glm_mat3_mulv(normal_mat, n3, n3);
 
         /* Fixed world-space light direction (pointing up) */
         const float light_y = 1.0f;
 
         /* Calculate brightness from world-space normal */
-        float len = sqrtf(nx * nx + ny * ny + nz * nz);
-        if (len < 0.001f) continue;
+        //float len = sqrtf(nx * nx + ny * ny + nz * nz);
+        //if (len < 0.001f) continue;
 
-        float brightness = (ny + len) * 0.5f / len;
+        //float brightness = (ny + len) * 0.5f / len;
 
-        vec3s vin[3] = {
-            { view_pos1[0], view_pos1[1], view_pos1[2] },
-            { view_pos2[0], view_pos2[1], view_pos2[2] },
-            { view_pos3[0], view_pos3[1], view_pos3[2] }
+        ClipVert vin[3] = {
+            { view_pos1[0], view_pos1[1], view_pos1[2], n1[0], n1[1], n1[2]},
+            { view_pos2[0], view_pos2[1], view_pos2[2], n2[0], n2[1], n2[2] },
+            { view_pos3[0], view_pos3[1], view_pos3[2], n3[0], n3[1], n3[2] }
         };
 
-        vec3s vout[6];
+        ClipVert vout[6];
         int tri_count = clip_triangle_near(vin, vout, -NEAR_PLANE); // your near plane
-
-
 
         if (tri_count == 0)
             continue;
 
         for (int t = 0; t < tri_count; t++) {
 
-            vec3s a = vout[t * 3 + 0];
-            vec3s b = vout[t * 3 + 1];
-            vec3s c = vout[t * 3 + 2];
+            ClipVert a = vout[t * 3 + 0];
+            ClipVert b = vout[t * 3 + 1];
+            ClipVert c = vout[t * 3 + 2];
 
             /* Use a,b,c as your new triangle */
             /* Continue pipeline from here */
@@ -539,11 +601,20 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
                 continue;  /* Triangle completely off-screen */
             }
 
+            ClipVert v1 = { x1, y1, z1, a.nx, a.ny, a.nz };
+            ClipVert v2 = { x2, y2, z2, b.nx, b.ny, b.nz };
+            ClipVert v3 = { x3, y3, z3, c.nx, c.ny, c.nz };
+
+            normalize_clipvert(&v1);
+            normalize_clipvert(&v2);
+            normalize_clipvert(&v3);
+
             /* Sort vertices by Y coordinate */
-            sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
+            sort_clipvert_by_y(&v1, &v2, &v3);
+            //sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
 
             /* Check for degenerate triangle */
-            if (fabsf(y3 - y1) < 0.001f) continue;
+            if (fabsf(v3.y - v1.y) < 0.001f) continue;
 
             /* Setup edges */
             EdgeData edge_long;   /* v1 to v3 (long edge) */
@@ -551,26 +622,22 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
             EdgeData edge_short2; /* v2 to v3 (short edge 2) */
 
             /* Don't clamp y_min/y_max initially - use original values */
-            int y_top = max_int(0, (int)ceilf(y1));
-            int y_bottom = min_int(SCREEN_HEIGHT - 1, (int)floorf(y3));
+            int y_top = max_int(0, (int)ceilf(v1.y));
+            int y_bottom = min_int(SCREEN_HEIGHT - 1, (int)floorf(v3.y));
 
             /* Setup edges with original values */
-            setup_edge(&edge_long, x1, y1, z1, x3, y3, z3);
-            setup_edge(&edge_short1, x1, y1, z1, x2, y2, z2);
-            setup_edge(&edge_short2, x2, y2, z2, x3, y3, z3);
+            setup_edge_clipvert(&edge_long, &v1, &v3);
+            setup_edge_clipvert(&edge_short1, &v1, &v2);
+            setup_edge_clipvert(&edge_short2, &v2, &v3);
 
             /* Determine which side the middle vertex is on */
-            float mid_x_on_long = x1 + (x3 - x1) * (y2 - y1) / (y3 - y1);
-            int middle_is_right = (x2 > mid_x_on_long);
+            float mid_x_on_long = v1.x + (v3.x - v1.x) * (v2.y - v1.y) / (v3.y - v1.y);
+            int middle_is_right = (v2.x > mid_x_on_long);
 
             /* Rasterize top half (v1 to v2) */
-            int y_mid = min_int(SCREEN_HEIGHT - 1, max_int(0, (int)ceilf(y2)));
+            int y_mid = min_int(SCREEN_HEIGHT - 1, max_int(0, (int)ceilf(v2.y)));
             EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
             EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
-
-            float mag_sqr = nx * nx + ny * ny + nz * nz;
-            float inv_sqrt = Q_rsqrt(mag_sqr);
-            vec3s norm = { nx * inv_sqrt, ny * inv_sqrt, nz * inv_sqrt };
 
             for (int y = y_top; y < y_mid; y++) {
 
@@ -579,19 +646,21 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
                 float lt = ((float)y - left_edge->y_start) / ldenom;
                 left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, lt);
                 left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, lt);
+                left_edge->normal = glms_vec3_lerp(left_edge->normal_start, left_edge->normal_end, lt);
                 //left_edge->z += left_edge->dz;
                 float rdenom = (right_edge->y_end - right_edge->y_start);
                 if (fabsf(rdenom) < -1e-6f) continue;
                 float rt = ((float)y - right_edge->y_start) / rdenom;
                 right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, rt);
                 right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, rt);
+                right_edge->normal = glms_vec3_lerp(right_edge->normal_start, right_edge->normal_end, rt);
                 //right_edge->z += right_edge->dz;
 
                 /* Draw left edge if it's the short edge, right edge if it's the short edge */
                 int draw_left = !middle_is_right;  /* short edge on left */
                 int draw_right = middle_is_right;   /* short edge on right */
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-                span_t s = { left_edge->x, right_edge->x, left_edge->z, right_edge->z, norm };
+                span_t s = { left_edge->x, right_edge->x, left_edge->z, right_edge->z, left_edge->normal, right_edge->normal };
                 insert_span(&(sbuffer[y]), &s);
             }
 
@@ -606,12 +675,14 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
                 float lt = ((float)y - left_edge->y_start) / ldenom;
                 left_edge->x = lerp((float)left_edge->x_start, (float)left_edge->x_end, lt);
                 left_edge->z = lerp((float)left_edge->z_start, (float)left_edge->z_end, lt);
+                left_edge->normal = glms_vec3_lerp(left_edge->normal_start, left_edge->normal_end, lt);
                 //left_edge->z += left_edge->dz;
                 float rdenom = (right_edge->y_end - right_edge->y_start);
                 if (fabsf(rdenom) < -1e-6f) continue;
                 float rt = ((float)y - right_edge->y_start) / rdenom;
                 right_edge->x = lerp((float)right_edge->x_start, (float)right_edge->x_end, rt);
                 right_edge->z = lerp((float)right_edge->z_start, (float)right_edge->z_end, rt);
+                right_edge->normal = glms_vec3_lerp(right_edge->normal_start, right_edge->normal_end, rt);
                 //right_edge->z += right_edge->dz;
 
 
@@ -619,7 +690,7 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
                 int draw_left = !middle_is_right;  /* short edge on left */
                 int draw_right = middle_is_right;   /* short edge on right */
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-                span_t s = { left_edge->x, right_edge->x, left_edge->z, right_edge->z, norm };
+                span_t s = { left_edge->x, right_edge->x, left_edge->z, right_edge->z, left_edge->normal, right_edge->normal };
                 insert_span(&(sbuffer[y]), &s);
             }
         }
@@ -635,6 +706,11 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
     glm_mat4_mul(view, model, mv);
     glm_mat4_mul(projection, mv, mvp);
 
+    mat3 normal_mat;
+    glm_mat4_pick3(model, normal_mat);
+    glm_mat3_inv(normal_mat, normal_mat);
+    glm_mat3_transpose(normal_mat);
+
     float* buf = (float*)vd->m_vertex_buffer.data;
     size_t buf_size = vd->m_vertex_buffer.size;
     float* depth_data = (float*)depth_buffer->data;
@@ -642,10 +718,15 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
     const float hw = SCREEN_WIDTH * 0.5f;
     const float hh = SCREEN_HEIGHT * 0.5f;
 
-    for (size_t i = 0; i < buf_size; i += 9) {
+    for (size_t i = 0; i < buf_size; i += 18) {
         vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
-        vec4 pos2 = { buf[i + 3], buf[i + 4], buf[i + 5], 1.0f };
-        vec4 pos3 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+        vec3 n1 = { buf[i + 3], buf[i + 4], buf[i + 5] };
+
+        vec4 pos2 = { buf[i + 6], buf[i + 7], buf[i + 8], 1.0f };
+        vec3 n2 = { buf[i + 9], buf[i + 10], buf[i + 11] };
+
+        vec4 pos3 = { buf[i + 12], buf[i + 13], buf[i + 14], 1.0f };
+        vec3 n3 = { buf[i + 15], buf[i + 16], buf[i + 17] };
 
         vec4 view_pos1, view_pos2, view_pos3;
         glm_mat4_mulv(mv, pos1, view_pos1);
@@ -681,46 +762,36 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
         glm_mat4_mulv(model, pos2, world_pos2);
         glm_mat4_mulv(model, pos3, world_pos3);
 
-        /* Calculate normal in world space */
-        float w_e1x = world_pos2[0] - world_pos1[0];
-        float w_e1y = world_pos2[1] - world_pos1[1];
-        float w_e1z = world_pos2[2] - world_pos1[2];
-        float w_e2x = world_pos3[0] - world_pos1[0];
-        float w_e2y = world_pos3[1] - world_pos1[1];
-        float w_e2z = world_pos3[2] - world_pos1[2];
-
-        nx = w_e1y * w_e2z - w_e1z * w_e2y;
-        ny = w_e1z * w_e2x - w_e1x * w_e2z;
-        nz = w_e1x * w_e2y - w_e1y * w_e2x;
+        glm_mat3_mulv(normal_mat, n1, n1);
+        glm_mat3_mulv(normal_mat, n2, n2);
+        glm_mat3_mulv(normal_mat, n3, n3);
 
         /* Fixed world-space light direction (pointing up) */
         const float light_y = 1.0f;
 
         /* Calculate brightness from world-space normal */
-        float len = sqrtf(nx * nx + ny * ny + nz * nz);
-        if (len < 0.001f) continue;
+        //float len = sqrtf(nx * nx + ny * ny + nz * nz);
+        //if (len < 0.001f) continue;
 
-        float brightness = (ny + len) * 0.5f / len;
+        //float brightness = (ny + len) * 0.5f / len;
 
-        vec3s vin[3] = {
-            { view_pos1[0], view_pos1[1], view_pos1[2] },
-            { view_pos2[0], view_pos2[1], view_pos2[2] },
-            { view_pos3[0], view_pos3[1], view_pos3[2] }
+        ClipVert vin[3] = {
+            { view_pos1[0], view_pos1[1], view_pos1[2], n1[0], n1[1], n1[2]},
+            { view_pos2[0], view_pos2[1], view_pos2[2], n2[0], n2[1], n2[2] },
+            { view_pos3[0], view_pos3[1], view_pos3[2], n3[0], n3[1], n3[2] }
         };
 
-        vec3s vout[6];
+        ClipVert vout[6];
         int tri_count = clip_triangle_near(vin, vout, -NEAR_PLANE); // your near plane
-        
-        
 
         if (tri_count == 0)
             continue;
 
         for (int t = 0; t < tri_count; t++) {
 
-            vec3s a = vout[t * 3 + 0];
-            vec3s b = vout[t * 3 + 1];
-            vec3s c = vout[t * 3 + 2];
+            ClipVert a = vout[t * 3 + 0];
+            ClipVert b = vout[t * 3 + 1];
+            ClipVert c = vout[t * 3 + 2];
 
             /* Use a,b,c as your new triangle */
             /* Continue pipeline from here */
@@ -732,7 +803,7 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             glm_vec4_copy(newVP2, view_pos2);
             glm_vec4_copy(newVP3, view_pos3);
 
-             /* Project to screen space */
+            /* Project to screen space */
             vec4 clip1, clip2, clip3;
             glm_mat4_mulv(projection, view_pos1, clip1);
             glm_mat4_mulv(projection, view_pos2, clip2);
@@ -764,11 +835,20 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 continue;  /* Triangle completely off-screen */
             }
 
+            ClipVert v1 = { x1, y1, z1, a.nx, a.ny, a.nz };
+            ClipVert v2 = { x2, y2, z2, b.nx, b.ny, b.nz };
+            ClipVert v3 = { x3, y3, z3, c.nx, c.ny, c.nz };
+
+            normalize_clipvert(&v1);
+            normalize_clipvert(&v2);
+            normalize_clipvert(&v3);
+
             /* Sort vertices by Y coordinate */
-            sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
+            sort_clipvert_by_y(&v1, &v2, &v3);
+            //sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
 
             /* Check for degenerate triangle */
-            if (fabsf(y3 - y1) < 0.001f) continue;
+            if (fabsf(v3.y - v1.y) < 0.001f) continue;
 
             /* Setup edges */
             EdgeData edge_long;   /* v1 to v3 (long edge) */
@@ -776,20 +856,20 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
             EdgeData edge_short2; /* v2 to v3 (short edge 2) */
 
             /* Don't clamp y_min/y_max initially - use original values */
-            int y_top = max_int(0, (int)ceilf(y1));
-            int y_bottom = min_int(SCREEN_HEIGHT - 1, (int)floorf(y3));
+            int y_top = max_int(0, (int)ceilf(v1.y));
+            int y_bottom = min_int(SCREEN_HEIGHT - 1, (int)floorf(v3.y));
 
             /* Setup edges with original values */
-            setup_edge(&edge_long, x1, y1, z1, x3, y3, z3);
-            setup_edge(&edge_short1, x1, y1, z1, x2, y2, z2);
-            setup_edge(&edge_short2, x2, y2, z2, x3, y3, z3);
+            setup_edge_clipvert(&edge_long, &v1, &v3);
+            setup_edge_clipvert(&edge_short1, &v1, &v2);
+            setup_edge_clipvert(&edge_short2, &v2, &v3);
 
             /* Determine which side the middle vertex is on */
-            float mid_x_on_long = x1 + (x3 - x1) * (y2 - y1) / (y3 - y1);
-            int middle_is_right = (x2 > mid_x_on_long);
+            float mid_x_on_long = v1.x + (v3.x - v1.x) * (v2.y - v1.y) / (v3.y - v1.y);
+            int middle_is_right = (v2.x > mid_x_on_long);
 
             /* Rasterize top half (v1 to v2) */
-            int y_mid = (int)ceilf(y2);
+            int y_mid = min_int(SCREEN_HEIGHT - 1, max_int(0, (int)ceilf(v2.y)));
             EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
             EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
 
@@ -808,11 +888,10 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 int draw_left = !middle_is_right;  /* short edge on left */
                 int draw_right = middle_is_right;   /* short edge on right */
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-
                 if (y >= 0 && y < SCREEN_HEIGHT) {
                     fill_span(pd, depth_data, T, y,
                         left_edge->x, right_edge->x,
-                        left_edge->z, right_edge->z, brightness,
+                        left_edge->z, right_edge->z, left_edge->normal.y, right_edge->normal.y,
                         1, 1);
                 }
             }
@@ -840,7 +919,7 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 if (y >= 0 && y < SCREEN_HEIGHT) {
                     fill_span(pd, depth_data, T, y,
                         left_edge->x, right_edge->x,
-                        left_edge->z, right_edge->z, brightness,
+                        left_edge->z, right_edge->z, left_edge->normal.y, right_edge->normal.y,
                         1, 1);
                 }
             }

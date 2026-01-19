@@ -11,7 +11,8 @@ typedef struct Span {
     float x_end;
     float z_start;
     float z_end;
-    vec3s normal;
+    vec3s normal_start;
+    vec3s normal_end;
 } span_t;
 
 void insert_span(Vector *list, span_t *s);
@@ -24,7 +25,7 @@ bool intersection(vec2s a1, vec2s a2, vec2s b1, vec2s b2, vec2s *out);
 
 void binary_insert(Vector *list, span_t *s, int low, int high);
 
-void clip_span(span_t *s, float new_x_start, float new_x_end);
+bool clip_span(span_t *s, float new_x_start, float new_x_end);
 
 void draw_span(span_t *span, int y, PlaydateAPI* pd, BayerMatrix *T);
 

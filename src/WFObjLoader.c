@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cglm/cglm.h>
+#include <cglm/struct.h>
 #include <assert.h>
 
 /* ===== Utility Functions ===== */
@@ -70,7 +71,7 @@ void wfface_init(WFFace* face, Vector* tokenized_line) {
     if (!face || !tokenized_line) return;
     
     /* Initialize vector to hold vertex indices (each is an int[3]) */
-    vector_setup(&face->m_vertices, 3, sizeof(int) * 3);
+    vector_setup(&face->m_vertices, 3, sizeof(ivec3s) * 3);
     
     wfface_add_vertices(face, tokenized_line);
 }
@@ -93,7 +94,7 @@ void wfface_add_vertices(WFFace* face, Vector* tokenized_line) {
 void wfface_add_vertex(WFFace* face, const char* vert_str) {
     if (!face || !vert_str) return;
     
-    int vertex_to_add[3] = {-1, -1, -1};
+    ivec3s vertex_to_add = {-1, -1, -1};
     int num_of_indices = count_occurrences(vert_str, '/') + 1;
     
     Vector tokenized_vert;
@@ -102,20 +103,20 @@ void wfface_add_vertex(WFFace* face, const char* vert_str) {
     
     if (num_of_indices >= 1 && tokenized_vert.size >= 1) {
         char** token = (char**)vector_get(&tokenized_vert, 0);
-        vertex_to_add[0] = atoi(*token) - 1;
+        vertex_to_add.x = atoi(*token) - 1;
     }
     
     if (tokenized_vert.size == 2 && num_of_indices == 3) {
         char** token = (char**)vector_get(&tokenized_vert, 1);
-        vertex_to_add[2] = atoi(*token) - 1;
+        vertex_to_add.z = atoi(*token) - 1;
     } else if (tokenized_vert.size == 3 && num_of_indices == 3) {
         char** token1 = (char**)vector_get(&tokenized_vert, 1);
         char** token2 = (char**)vector_get(&tokenized_vert, 2);
-        vertex_to_add[1] = atoi(*token1) - 1;
-        vertex_to_add[2] = atoi(*token2) - 1;
+        vertex_to_add.y = atoi(*token1) - 1;
+        vertex_to_add.z = atoi(*token2) - 1;
     }
     
-    vector_push_back(&face->m_vertices, vertex_to_add);
+    vector_push_back(&face->m_vertices, &vertex_to_add);
     
     /* Free tokenized strings */
     for (size_t i = 0; i < tokenized_vert.size; i++) {
@@ -132,8 +133,8 @@ int wfface_vertex_count(const WFFace* face) {
 
 int wfface_get_vertex_idx(const WFFace* face, int face_idx) {
     if (!face) return -1;
-    int* vertex = (int*)vector_const_get(&face->m_vertices, face_idx);
-    return vertex[0];
+    ivec3s vertex = *(ivec3s*)vector_const_get(&face->m_vertices, face_idx);
+    return vertex.x;
 }
 
 bool wfface_vertex_has_texture(const WFFace* face, int idx) {
@@ -144,14 +145,14 @@ bool wfface_vertex_has_texture(const WFFace* face, int idx) {
 
 bool wfface_vertex_has_normal(const WFFace* face, int idx) {
     if (!face) return false;
-    int* vertex = (int*)vector_const_get(&face->m_vertices, idx);
-    return vertex[2] != -1;
+    ivec3s vertex = *(ivec3s*)vector_const_get(&face->m_vertices, idx);
+    return vertex.z != -1;
 }
 
 int wfface_get_vertex_texture(const WFFace* face, int idx) {
     if (!face) return -1;
-    int* vertex = (int*)vector_const_get(&face->m_vertices, idx);
-    return vertex[1];
+    ivec3s vertex = *(ivec3s*)vector_const_get(&face->m_vertices, idx);
+    return vertex.y;
 }
 
 int wfface_get_vertex_normal(const WFFace* face, int idx) {
@@ -160,8 +161,8 @@ int wfface_get_vertex_normal(const WFFace* face, int idx) {
         fprintf(stderr, "tried to access nonexistent vertex normal\n");
         exit(1);
     }
-    int* vertex = (int*)vector_const_get(&face->m_vertices, idx);
-    return vertex[2];
+    ivec3s vertex = *(ivec3s*)vector_const_get(&face->m_vertices, idx);
+    return vertex.z;
 }
 
 /* ===== Helper for reading files ===== */
@@ -218,7 +219,7 @@ SceneObject wfobjloader_create_scene_object_from_file(
     
     /* Create SimpleVertexData */
     const int attribute_count = 3;
-    int stride = 9;
+    int stride = 6;
     int* offsets = (int*)malloc(attribute_count * sizeof(int));
     offsets[0] = 0;
     offsets[1] = 3;
@@ -256,7 +257,7 @@ void wfobjloader_parse_obj_file(WFObjLoader* loader, const char* filepath, Playd
     while (true) {
         pd_getline(obj_file, line, sizeof(line), pd);
         if (strlen(line) > 0) {
-            pd->system->logToConsole("OBJ Line: %s", line);
+            //pd->system->logToConsole("OBJ Line: %s", line);
             wfobjloader_parse_obj_file_line(loader, line);
         } else {
             pd->system->logToConsole("End of OBJ file reached");
@@ -365,6 +366,25 @@ void wfobjloader_get_simple_vertex_buffer(WFObjLoader* loader, Vector* out_buffe
 
 void wfobjloader_face_to_simple_vertex_buffer(WFObjLoader* loader, WFFace* face, Vector* out_buffer) {
     if (!loader || !face || !out_buffer) return;
+
+    int vert_idx1 = wfface_get_vertex_idx(face, 0);
+    int vert_idx2 = wfface_get_vertex_idx(face, 1);
+    int vert_idx3 = wfface_get_vertex_idx(face, 2);
+    vec4* vert1 = (vec4*)vector_get(&loader->m_vertices, vert_idx1);
+    vec4* vert2 = (vec4*)vector_get(&loader->m_vertices, vert_idx2);
+    vec4* vert3 = (vec4*)vector_get(&loader->m_vertices, vert_idx3);
+
+    float e1x = (*vert2)[0] - (*vert1)[0];
+    float e1y = (*vert2)[1] - (*vert1)[1];
+    float e1z = (*vert2)[2] - (*vert1)[2];
+    float e2x = (*vert3)[0] - (*vert1)[0];
+    float e2y = (*vert3)[1] - (*vert1)[1];
+    float e2z = (*vert3)[2] - (*vert1)[2];
+
+    float nx = e1y * e2z - e1z * e2y;
+    float ny = e1z * e2x - e1x * e2z;
+    float nz = e1x * e2y - e1y * e2x;
+
     
     for (int i = 0; i < wfface_vertex_count(face); i++) {
         int vert_idx = wfface_get_vertex_idx(face, i);
@@ -373,6 +393,18 @@ void wfobjloader_face_to_simple_vertex_buffer(WFObjLoader* loader, WFFace* face,
         vector_push_back(out_buffer, &(*vert)[0]);
         vector_push_back(out_buffer, &(*vert)[1]);
         vector_push_back(out_buffer, &(*vert)[2]);
+        if (wfface_vertex_has_normal(face, i)) {
+            int n_idx = wfface_get_vertex_normal(face, i);
+            vec3* v_normal = (vec3*)vector_get(&loader->m_vertex_normals, n_idx);
+            vector_push_back(out_buffer, &(*v_normal)[0]);
+            vector_push_back(out_buffer, &(*v_normal)[1]);
+            vector_push_back(out_buffer, &(*v_normal)[2]);
+        }
+        else {
+            vector_push_back(out_buffer, &nx);
+            vector_push_back(out_buffer, &ny);
+            vector_push_back(out_buffer, &nz);
+        }
     }
 }
 

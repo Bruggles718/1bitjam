@@ -45,12 +45,12 @@ bool intersection_span(span_t* a, span_t* b, vec2s* out) {
 
 
 bool clip_span(span_t *s, float new_x_start, float new_x_end) {
-    // add normal interpolation eventually
     bool result = false;
     if (new_x_start > s->x_start) {
         float old_x_start = s->x_start;
         float new_x_percentage = calc_percentage(old_x_start, s->x_end, new_x_start);
         s->z_start = lerp(s->z_start, s->z_end, new_x_percentage);
+        s->normal_end = glms_vec3_lerp(s->normal_start, s->normal_end, new_x_percentage);
         s->x_start = new_x_start;
         result = true;
     }
@@ -58,6 +58,7 @@ bool clip_span(span_t *s, float new_x_start, float new_x_end) {
         float old_x_end = s->x_end;
         float new_x_percentage = calc_percentage(old_x_end, s->x_start, new_x_end);
         s->z_end = lerp(s->z_end, s->z_start, new_x_percentage);
+        s->normal_end = glms_vec3_lerp(s->normal_end, s->normal_start, new_x_percentage);
         s->x_end = new_x_end;
         result = true;
     }
@@ -272,20 +273,27 @@ static inline int min_int(int a, int b) {
 void draw_span(span_t *span, int y, PlaydateAPI* pd, BayerMatrix *T) {
     int line_thickness = 1;
 
-    int x_start = max_int(0, min_int(SCREEN_WIDTH - 1, (int)ceilf(span->x_start)));
-    int x_end = max_int(0, min_int(SCREEN_WIDTH - 1, (int)floorf(span->x_end)));
+    int x_start = max_int(0, min_int(SCREEN_WIDTH - 1, (int)ceilf(span->x_start) + line_thickness));
+    int x_end = max_int(0, min_int(SCREEN_WIDTH - 1, (int)floorf(span->x_end) - line_thickness));
+    clip_span(span, x_start, x_end);
     // draw start and end black always
     for (int i = 0; i < line_thickness; i++) {
         setPixel(pd, x_start + i, y, kColorBlack);
         setPixel(pd, x_end - i, y, kColorBlack);
     }
-    float brightness = (span->normal.y + 1) * 0.5f;
     int bayer_y = y & 7;
     int bayer_x = x_start & 7;
-    for (int x = x_start + line_thickness; x < x_end - line_thickness; x += 1, bayer_x = (bayer_x + 1) & 7) {
+    // properly interpolate normal based on screen clipping
+    float t = (float)(x_end - x_start);
+    float norm_diff = span->normal_end.y - span->normal_start.y;
+    float dn = norm_diff / t;
+    float current_normal = span->normal_start.y;
+    for (int x = x_start ; x < x_end; x += 1, bayer_x = (bayer_x + 1) & 7) {
         // draw pixel
+        float brightness = (current_normal + 1) * 0.5f;
         int color = (brightness > T->data[bayer_y][bayer_x]) ? kColorWhite : kColorBlack;
         setPixel(pd, x, y, color);
+        current_normal += dn;
     }
 }
 
