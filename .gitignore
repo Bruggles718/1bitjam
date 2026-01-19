@@ -4,3 +4,4 @@ build/**
 1bitjam_DEVICE.pdx/**
 src/vector.c
 **.elf
+**.so
