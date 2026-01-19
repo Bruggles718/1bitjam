@@ -757,11 +757,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
 
         /* Lighting */
 
-        vec4 world_pos1, world_pos2, world_pos3;
-        glm_mat4_mulv(model, pos1, world_pos1);
-        glm_mat4_mulv(model, pos2, world_pos2);
-        glm_mat4_mulv(model, pos3, world_pos3);
-
         glm_mat3_mulv(normal_mat, n1, n1);
         glm_mat3_mulv(normal_mat, n2, n2);
         glm_mat3_mulv(normal_mat, n3, n3);

@@ -23,7 +23,7 @@ float orient(vec2s a, vec2s b, vec2s c);
 
 bool intersection(vec2s a1, vec2s a2, vec2s b1, vec2s b2, vec2s *out);
 
-void binary_insert(Vector *list, span_t *s, int low, int high);
+void binary_insert(Vector *list, span_t *s, int low, int high, bool ov);
 
 bool clip_span(span_t *s, float new_x_start, float new_x_end);
 

@@ -17,6 +17,7 @@
 #include "ScreenGlobals.h"
 #include "SBufferRenderer.h"
 
+#if TARGET_PLAYDATE
 void _close(void)
 {
 }
@@ -45,6 +46,8 @@ void _kill(void)
 void abort(void) {}
 void _exit(void) {}
 void _fini(void) {}
+
+#endif
 
 static int update(void* userdata);
 const char* fontpath = "/System/Fonts/Asheville-Sans-14-Bold.pft";
