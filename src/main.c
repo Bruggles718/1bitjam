@@ -329,8 +329,8 @@ void draw_sbuffer(PlaydateAPI *pd) {
 
 static int update(void* userdata)
 {
-	//reset_depth_buffer();
-	clear_sbuffer();
+	reset_depth_buffer();
+	//clear_sbuffer();
 	PlaydateAPI* pd = userdata;
 	// pd->system->logToConsole("db val: %f", VECTOR_GET_AS(float, depth_buffer, 0));
 
