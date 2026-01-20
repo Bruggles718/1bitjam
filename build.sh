@@ -1,4 +1,4 @@
-#!/bin/bash
 docker run --rm \
-  -v "$(pwd)/":/output \
+  -v "$(pwd)":/src:ro \
+  -v "$(pwd)":/output \
   playdate-build

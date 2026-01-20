@@ -1,22 +1,33 @@
 #!/bin/bash
 set -e
 
-BUILD=/project/build
+SRC=/src          # mounted read-only
+WORK=/work        # container-only
 OUT=/output
 
-# Auto-detect SDK
-SDK_DIR=$(find /root -maxdepth 1 -type d -name "PlaydateSDK*" | head -n 1)
+export PLAYDATE_SDK_PATH=$(find /root -maxdepth 1 -type d -name "PlaydateSDK*" | head -n 1)
 
-echo "Using SDK: $SDK_DIR"
+echo "SDK: $PLAYDATE_SDK_PATH"
 
-mkdir -p $BUILD
-cd $BUILD
+# Fresh workspace
+rm -rf $WORK
+mkdir -p $WORK
 
-cmake -DCMAKE_TOOLCHAIN_FILE=$SDK_DIR/C_API/buildsupport/arm.cmake ..
+# Copy project, excluding build/
+rsync -a \
+  --exclude build \
+  --exclude '*.pdx' \
+  $SRC/ $WORK/
+
+# Build
+mkdir $WORK/build
+cd $WORK/build
+
+cmake -DCMAKE_TOOLCHAIN_FILE=$PLAYDATE_SDK_PATH/C_API/buildsupport/arm.cmake ..
 make
 
-# Find .pdx
-PDX=$(find .. -maxdepth 1 -name "*.pdx" | head -n 1)
+# Export pdx
+PDX=$(find $WORK -name "*.pdx" | head -n 1)
 
 if [ -z "$PDX" ]; then
   echo "❌ No .pdx produced"
@@ -25,4 +36,4 @@ fi
 
 cp -r "$PDX" $OUT
 
-echo "✅ Build complete! Output copied to host."
+echo "✅ Output copied to host"
