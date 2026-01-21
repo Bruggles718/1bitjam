@@ -473,6 +473,11 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
     glm_mat4_mul(view, model, mv);
     glm_mat4_mul(projection, mv, mvp);
 
+    mat3 normal_mat;
+    glm_mat4_pick3(model, normal_mat);
+    glm_mat3_inv(normal_mat, normal_mat);
+    glm_mat3_transpose(normal_mat);
+
     float* buf = (float*)vd->m_vertex_buffer.data;
     size_t buf_size = vd->m_vertex_buffer.size;
 
@@ -523,11 +528,7 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
         glm_mat4_mulv(model, pos2, world_pos2);
         glm_mat4_mulv(model, pos3, world_pos3);
 
-        
-        mat3 normal_mat;
-        glm_mat4_pick3(model, normal_mat);
-        glm_mat3_inv(normal_mat, normal_mat);
-        glm_mat3_transpose(normal_mat);
+
         glm_mat3_mulv(normal_mat, n1, n1);
         glm_mat3_mulv(normal_mat, n2, n2);
         glm_mat3_mulv(normal_mat, n3, n3);
@@ -561,19 +562,15 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
 
             /* Use a,b,c as your new triangle */
             /* Continue pipeline from here */
-
             vec4 newVP1 = { a.x, a.y, a.z, 1.0f };
             vec4 newVP2 = { b.x, b.y, b.z, 1.0f };
             vec4 newVP3 = { c.x, c.y, c.z, 1.0f };
-            glm_vec4_copy(newVP1, view_pos1);
-            glm_vec4_copy(newVP2, view_pos2);
-            glm_vec4_copy(newVP3, view_pos3);
 
             /* Project to screen space */
             vec4 clip1, clip2, clip3;
-            glm_mat4_mulv(projection, view_pos1, clip1);
-            glm_mat4_mulv(projection, view_pos2, clip2);
-            glm_mat4_mulv(projection, view_pos3, clip3);
+            glm_mat4_mulv(projection, newVP1, clip1);
+            glm_mat4_mulv(projection, newVP2, clip2);
+            glm_mat4_mulv(projection, newVP3, clip3);
 
             float inv_w1 = 1.0f / clip1[3];
             float inv_w2 = 1.0f / clip2[3];
@@ -587,9 +584,9 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
             float y3 = (1.0f - clip3[1] * inv_w3) * hh;
 
             // After projection and screen transform
-            float z1 = 1.0f / -view_pos1[2];  // Use reciprocal of view Z
-            float z2 = 1.0f / -view_pos2[2];
-            float z3 = 1.0f / -view_pos3[2];
+            float z1 = 1.0f / -newVP1[2];  // Use reciprocal of view Z
+            float z2 = 1.0f / -newVP2[2];
+            float z3 = 1.0f / -newVP3[2];
 
             float min_x = min3(x1, x2, x3);
             float max_x = max3(x1, x2, x3);
