@@ -305,7 +305,7 @@ void setPixel(PlaydateAPI* pd, int x, int y, int color) {
 /* Fill a horizontal span with integrated edge drawing */
 static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
     int y, float x_left, float x_right,
-    float z_left, float z_right, float n_left, float n_right,
+    float z_left, float z_right, vec3s n_left, vec3s n_right,
     int draw_left_edge, int draw_right_edge) {
 
     int x_start = max_int(0, (int)ceilf(x_left));
@@ -327,9 +327,9 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_data, BayerMatrix* T,
     const int edge_width = 1;  /* Change this to adjust edge thickness */
     const float edge_depth_offset = 0.0001f;  /* Bring edges slightly closer */
 
-    float norm_diff = n_left - n_right;
+    float norm_diff = n_left.y - n_right.y;
     float dn = norm_diff / span_width;
-    float current_normal = n_left + dn * prestep;
+    float current_normal = n_left.y + dn * prestep;
     float brightness = (current_normal + 1) * 0.5f;
 
     for (int x = x_start; x <= x_end; x++, idx++, bayer_x = (bayer_x + 1) & 7) {
@@ -886,7 +886,7 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 if (y >= 0 && y < SCREEN_HEIGHT) {
                     fill_span(pd, depth_data, T, y,
                         left_edge->x, right_edge->x,
-                        left_edge->z, right_edge->z, left_edge->normal.y, right_edge->normal.y,
+                        left_edge->z, right_edge->z, left_edge->normal, right_edge->normal,
                         1, 1);
                 }
             }
@@ -914,7 +914,7 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 if (y >= 0 && y < SCREEN_HEIGHT) {
                     fill_span(pd, depth_data, T, y,
                         left_edge->x, right_edge->x,
-                        left_edge->z, right_edge->z, left_edge->normal.y, right_edge->normal.y,
+                        left_edge->z, right_edge->z, left_edge->normal, right_edge->normal,
                         1, 1);
                 }
             }
