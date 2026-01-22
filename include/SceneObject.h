@@ -95,7 +95,7 @@ void scene_object_destroy(SceneObject* obj);
 
 /* Public methods */
 void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd, 
-                       Vector* depth_buffer, BayerMatrix* T);
+                       float* depth_buffer, BayerMatrix* T);
 void scene_object_set_transform(SceneObject* obj, Transform transform);
 void scene_object_set_position(SceneObject* obj, vec3 position);
 void scene_object_set_rotation(SceneObject* obj, versor rotation);

@@ -696,7 +696,7 @@ void vertex_data_add_to_sbuffer(SimpleVertexData* vd, PlaydateAPI *pd, mat4 mode
 
 
 void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model, mat4 view,
-    mat4 projection, Vector* depth_buffer, BayerMatrix* T) {
+    mat4 projection, float* depth_buffer, BayerMatrix* T) {
     if (!vd) return;
 
     mat4 mv, mvp;
@@ -710,7 +710,6 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
 
     float* buf = (float*)vd->m_vertex_buffer.data;
     size_t buf_size = vd->m_vertex_buffer.size;
-    float* depth_data = (float*)depth_buffer->data;
 
     const float hw = SCREEN_WIDTH * 0.5f;
     const float hh = SCREEN_HEIGHT * 0.5f;
@@ -881,7 +880,7 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 int draw_right = middle_is_right;   /* short edge on right */
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
                 if (y >= 0 && y < SCREEN_HEIGHT) {
-                    fill_span(pd, depth_data, T, y,
+                    fill_span(pd, depth_buffer, T, y,
                         left_edge->x, right_edge->x,
                         left_edge->z, right_edge->z, left_edge->normal, right_edge->normal,
                         1, 1);
@@ -909,7 +908,7 @@ void vertex_data_draw_scanline(SimpleVertexData* vd, PlaydateAPI* pd, mat4 model
                 int draw_right = middle_is_right;   /* short edge on right */
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
                 if (y >= 0 && y < SCREEN_HEIGHT) {
-                    fill_span(pd, depth_data, T, y,
+                    fill_span(pd, depth_buffer, T, y,
                         left_edge->x, right_edge->x,
                         left_edge->z, right_edge->z, left_edge->normal, right_edge->normal,
                         1, 1);
@@ -1194,7 +1193,7 @@ void scene_object_fill_sbuffer(SceneObject* obj, const Camera* camera, PlaydateA
 }
 
 void scene_object_draw(SceneObject* obj, const Camera* camera, PlaydateAPI* pd,
-                       Vector* depth_buffer, BayerMatrix* T) {
+                       float* depth_buffer, BayerMatrix* T) {
     if (!obj) return;
     
     /* Build model matrix */

@@ -53,25 +53,17 @@ static int update(void* userdata);
 const char* fontpath = "/System/Fonts/Asheville-Sans-14-Bold.pft";
 LCDFont* font = NULL;
 
-SceneObject* submarineObj;
-SceneObject* mapObj;
-Camera *camera;
-Vector* depth_buffer;
-BayerMatrix *bayer_matrix;
+SceneObject submarineObj;
+SceneObject mapObj;
+Camera camera;
+float depth_buffer[SCREEN_WIDTH * SCREEN_HEIGHT];
+BayerMatrix bayer_matrix;
 
 LCDBitmap* frame_buffer;
 uint8_t* fb_data;
 int rowbytes;
 
 Vector sbuffer[LCD_ROWS];
-
-void initialize_depth_buffer() {
-	int size = SCREEN_WIDTH * SCREEN_HEIGHT;
-	for (int i = 0; i < size; i += 1) {
-		float ni = -INFINITY;
-		vector_push_back(depth_buffer, &ni);
-	}
-}
 
 void initialize_sbuffer() {
 	for (int i = 0; i < LCD_ROWS; i += 1) {
@@ -83,6 +75,15 @@ void clear_sbuffer() {
 	for (int i = 0; i < LCD_ROWS; i += 1) {
 		sbuffer[i].size = 0;
 	}
+}
+
+void reset_depth_buffer()
+{
+	int size = SCREEN_WIDTH * SCREEN_HEIGHT;
+    for (int i = 0; i < size; i += 1)
+    {
+        depth_buffer[i] = -INFINITY;
+    }
 }
 
 #ifdef _WINDLL
@@ -105,27 +106,20 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		WFObjLoader wf_obj_loader;
 		wfobjloader_init(&wf_obj_loader);
 
-		submarineObj = (SceneObject*)malloc(sizeof(SceneObject));
-		*submarineObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "submarine.obj", pd);
-		mapObj = (SceneObject*)malloc(sizeof(SceneObject));
-		*mapObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "map.obj", pd);
-		camera = (Camera*)malloc(sizeof(Camera));
-		camera_init(camera);
+		submarineObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "submarine.obj", pd);
+		mapObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "map.obj", pd);
+		camera_init(&camera);
 
 
 		vec3 pos = {0.0, 0.0, 0.0};
-		scene_object_set_position(submarineObj, pos);
+		scene_object_set_position(&submarineObj, pos);
 
 		vec3 pos2 = { 0.0f, 0.0f, 0.0f };
-		scene_object_set_position(mapObj, pos2);
+		scene_object_set_position(&mapObj, pos2);
 
-		depth_buffer = (Vector*)malloc(sizeof(Vector));
-		vector_setup(depth_buffer, SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(float));
-		initialize_depth_buffer();
-		initialize_sbuffer();
+		reset_depth_buffer();
 
-		bayer_matrix = (BayerMatrix*)malloc(sizeof(BayerMatrix));
-		*bayer_matrix = bayer_matrix_create(512);
+		bayer_matrix = bayer_matrix_create(512);
 
 
 		frame_buffer = pd->graphics->newBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, kColorWhite);
@@ -151,16 +145,6 @@ int x = (400-TEXT_WIDTH)/2;
 int y = (240-TEXT_HEIGHT)/2;
 int dx = 1;
 int dy = 2;
-
-
-void reset_depth_buffer()
-{
-	float* data = (float*)depth_buffer->data;
-    for (int i = 0; i < depth_buffer->size; i += 1)
-    {
-        data[i] = -INFINITY;
-    }
-}
 
 
 static float smoothed_pitch = 0.0f;
@@ -313,15 +297,15 @@ void control_object(PlaydateAPI* pd, SceneObject* sub) {
 	glm_quat_slerp(cam_rot, tilt, rot_lerp, blended);
 	glm_quat_normalize_to(blended, cam_rot);
 
-	camera_set_rotation(camera, cam_rot);
-	camera_set_eye_position(camera, cam_pos[0], cam_pos[1], cam_pos[2]);
+	camera_set_rotation(&camera, cam_rot);
+	camera_set_eye_position(&camera, cam_pos[0], cam_pos[1], cam_pos[2]);
 
 
 }
 
 void draw_sbuffer(PlaydateAPI *pd) {
 	for (int i = 0; i < LCD_ROWS; i += 1) {
-		draw_scanline(&(sbuffer[i]), i, pd, bayer_matrix);
+		draw_scanline(&(sbuffer[i]), i, pd, &bayer_matrix);
 	}
 }
 
@@ -337,13 +321,13 @@ static int update(void* userdata)
 	//pd->graphics->clear(kColorWhite);
 	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
-	control_object(pd, submarineObj);
+	control_object(pd, &submarineObj);
 
 
 	
 
-	scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
-	scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);
+	scene_object_draw(&submarineObj, &camera, pd, depth_buffer, &bayer_matrix);
+	scene_object_draw(&mapObj, &camera, pd, depth_buffer, &bayer_matrix);
 	//pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
 	//draw_sbuffer(pd);
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
