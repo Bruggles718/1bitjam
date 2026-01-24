@@ -6,6 +6,7 @@
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/include/",
                 "/home/bruggles/Documents/playdate_stuff/PlaydateSDK-3.0.2/C_API/",
+                "/home/bruggles/playdate_stuff/PlaydateSDK-3.0.2/C_API/",
                 "/usr/include/"
             ],
             "defines": [

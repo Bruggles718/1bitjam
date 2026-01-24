@@ -1,3 +1,6 @@
 build/**
 1bitjam.pdx/**
 **.dll
+**.so
+**.bin
+**.elf
