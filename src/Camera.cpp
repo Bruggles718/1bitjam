@@ -13,11 +13,11 @@ void Camera::MoveForward(float speed){
     //    m_eyePosition.z -= speed;
     glm::vec4 forward = { 0.0f, 0.0f, -1.0f, 1.0f };  /* Default forward is -Z */
     glm::mat4 rotation_matrix = glm::toMat4(m_rotation);
-    forward = m_rotation * forward;
+    forward = rotation_matrix * forward;
 
     /* Move in forward direction */
     forward = forward * speed;
-    m_eyePosition += forward;
+    m_eyePosition += glm::vec3(forward);
 }
 
 void Camera::MoveBackward(float speed){
@@ -30,11 +30,11 @@ void Camera::MoveLeft(float speed){
     // Compute the right vector and update your 'eye' accordingly
     glm::vec4 right = { -1.0f, 0.0f, 0.0f, 1.0f };  /* Default forward is -Z */
     glm::mat4 rotation_matrix = glm::toMat4(m_rotation);
-    right = m_rotation * right;
+    right = rotation_matrix * right;
 
     /* Move in forward direction */
     right = right * speed;
-    m_eyePosition += right;
+    m_eyePosition += glm::vec3(right);
 }
 
 void Camera::MoveRight(float speed){
