@@ -12,6 +12,7 @@
 #define CAMERA_HPP
 
 #include "glm/glm.hpp"
+#include <glm/gtc/type_ptr.hpp>
 
 class Camera{
 public:
@@ -42,19 +43,15 @@ public:
     float GetViewYDirection();
     // Returns the Z 'view' direction
     float GetViewZDirection();
-private:
 
-    // Track the old mouse position
-    glm::vec2 m_oldMousePosition;
+    void SetRotation(glm::quat rotation);
+
+    void Rotate(float angle_degrees, glm::vec3 axis);
+private:
     // Where is our camera positioned
     glm::vec3 m_eyePosition;
     // What direction is the camera looking
-    glm::vec3 m_viewDirection;
-    // Which direction is 'up' in our world
-    // Generally this is constant, but if you wanted
-    // to 'rock' or 'rattle' the camera you might play
-    // with modifying this value.
-    glm::vec3 m_upVector;
+    glm::quat m_rotation;
 };
 
 

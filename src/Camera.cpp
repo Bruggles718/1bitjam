@@ -2,36 +2,7 @@
 
 #include "glm/gtx/transform.hpp"
 #include "glm/gtx/rotate_vector.hpp"
-
-#include <iostream>
-
-void Camera::MouseLook(int mouseX, int mouseY){
-    // Record our new position as a vector
-    glm::vec2 newMousePosition(mouseX, mouseY);
-    // Little hack for our 'mouse look function'
-    // We need this so that we can move our camera
-    // for the first time.
-    static bool firstLook=true;
-    if(true == firstLook){
-        firstLook=false;
-        m_oldMousePosition = newMousePosition;
-    }
-
-    // Detect how much the mouse has moved since
-    // the last time
-    // TODO
-    
-    int mouseDeltaX = m_oldMousePosition.x - newMousePosition.x;
-
-    // Rotate about the upVector
-    // TODO
-
-    m_viewDirection = glm::rotate(m_viewDirection, glm::radians((float)mouseDeltaX), glm::vec3(0.0f, 1.0f, 0.0f));
-    
-
-    // Update our old position after we have made changes 
-    m_oldMousePosition = newMousePosition;
-}
+#include "glm/gtx/quaternion.hpp"
 
 // OPTIONAL TODO: 
 //               The camera could really be improved by
@@ -40,36 +11,34 @@ void Camera::MouseLook(int mouseX, int mouseY){
 
 void Camera::MoveForward(float speed){
     //    m_eyePosition.z -= speed;
-        m_eyePosition.x += m_viewDirection.x *speed;
-        m_eyePosition.y += m_viewDirection.y *speed;
-        m_eyePosition.z += m_viewDirection.z *speed;
+    glm::vec4 forward = { 0.0f, 0.0f, -1.0f, 1.0f };  /* Default forward is -Z */
+    glm::mat4 rotation_matrix = glm::toMat4(m_rotation);
+    forward = m_rotation * forward;
+
+    /* Move in forward direction */
+    forward = forward * speed;
+    m_eyePosition += forward;
 }
 
 void Camera::MoveBackward(float speed){
-   //    m_eyePosition.z += speed;
-        m_eyePosition.x -= m_viewDirection.x *speed;
-        m_eyePosition.y -= m_viewDirection.y *speed;
-        m_eyePosition.z -= m_viewDirection.z *speed;
+   this->MoveForward(-speed);
 }
 
 void Camera::MoveLeft(float speed){
     //   TODO -- Note: You are updating the 'eye' position, but consider
     //        	       that you will need to update the 'rightVector'
     // Compute the right vector and update your 'eye' accordingly
-    float angle = 90.0f;
-    glm::vec3 moveDirection = glm::rotate(m_viewDirection, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
-    moveDirection *= speed;
-    m_eyePosition += moveDirection;
+    glm::vec4 right = { -1.0f, 0.0f, 0.0f, 1.0f };  /* Default forward is -Z */
+    glm::mat4 rotation_matrix = glm::toMat4(m_rotation);
+    right = m_rotation * right;
+
+    /* Move in forward direction */
+    right = right * speed;
+    m_eyePosition += right;
 }
 
 void Camera::MoveRight(float speed){
-    //   TODO -- Note: You are updating the 'eye' position, but consider
-    //        	       that you will need to update the 'rightVector'
-    // Compute the right vector and update your 'eye' accordingly
-    float angle = -90.0f;
-    glm::vec3 moveDirection = glm::rotate(m_viewDirection, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
-    moveDirection *= speed;
-    m_eyePosition += moveDirection;
+    this->MoveLeft(-speed);
 }
 
 void Camera::MoveUp(float speed){
@@ -99,34 +68,30 @@ float Camera::GetEyeZPosition(){
     return m_eyePosition.z;
 }
 
-float Camera::GetViewXDirection(){
-    return m_viewDirection.x;
+void Camera::SetRotation(glm::quat rotation) {
+    m_rotation = rotation;
 }
 
-float Camera::GetViewYDirection(){
-    return m_viewDirection.y;
+void Camera::Rotate(float angle_degrees, glm::vec3 axis) {
+    glm::quat rot = glm::angleAxis(glm::radians(angle_degrees), axis);
+    m_rotation = rot * m_rotation;
+    m_rotation = glm::normalize(m_rotation);
 }
-
-float Camera::GetViewZDirection(){
-    return m_viewDirection.z;
-}
-
 
 Camera::Camera(){
-    std::cout << "Camera.cpp: (Constructor) Created a Camera!\n";
+    //std::cout << "Camera.cpp: (Constructor) Created a Camera!\n";
 	// Position us at the origin.
     m_eyePosition = glm::vec3(0.0f,0.0f, 5.0f);
 	// Looking down along the z-axis initially.
 	// Remember, this is negative because we are looking 'into' the scene.
-    m_viewDirection = glm::vec3(0.0f,0.0f, -1.0f);
-	// For now--our upVector always points up along the y-axis
-    m_upVector = glm::vec3(0.0f, 1.0f, 0.0f);
+    m_rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 }
 
 glm::mat4 Camera::GetViewMatrix() const{
     // Think about the second argument and why that is
     // setup as it is.
-    return glm::lookAt( m_eyePosition,
-                        m_eyePosition + m_viewDirection,
-                        m_upVector);
+    glm::quat quat_inv = glm::conjugate(m_rotation);
+    glm::mat4 out = glm::toMat4(quat_inv);
+    glm::vec3 negative_eye = {-m_eyePosition.x, -m_eyePosition.y, -m_eyePosition.z};
+    return glm::translate(out, negative_eye);
 }
