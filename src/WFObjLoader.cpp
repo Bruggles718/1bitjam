@@ -174,6 +174,25 @@ std::vector<float> WFObjLoader::get_simple_vertex_buffer() {
 
 std::vector<float> WFObjLoader::face_to_simple_vertex_buffer(WFFace &i_face) {
     std::vector<float> result;
+
+    int vert_idx1 = i_face.get_vertex_idx(0);
+    int vert_idx2 = i_face.get_vertex_idx(1);
+    int vert_idx3 = i_face.get_vertex_idx(2);
+    glm::vec4 vert1 = m_vertices.at(vert_idx1);
+    glm::vec4 vert2 = m_vertices.at(vert_idx2);
+    glm::vec4 vert3 = m_vertices.at(vert_idx3);
+
+    float e1x = vert2.x - vert1.x;
+    float e1y = vert2.y - vert1.y;
+    float e1z = vert2.z - vert1.z;
+    float e2x = vert3.x - vert1.x;
+    float e2y = vert3.y - vert1.y;
+    float e2z = vert3.z - vert1.z;
+
+    float nx = e1y * e2z - e1z * e2y;
+    float ny = e1z * e2x - e1x * e2z;
+    float nz = e1x * e2y - e1y * e2x;
+
     for (int i = 0; i < i_face.vertex_count(); i++) {
         glm::vec4 vert = m_vertices[i_face.get_vertex_idx(i)];
         result.push_back(vert.x);
@@ -182,17 +201,17 @@ std::vector<float> WFObjLoader::face_to_simple_vertex_buffer(WFFace &i_face) {
         // result.push_back(0.1f);
         // result.push_back(0.3f);
         // result.push_back(1.0f);
-        // if (i_face.vertex_has_normal(i)) {
-        //     glm::vec3 vert_norm = m_vertex_normals[i_face.get_vertex_normal(i)];
-        //     result.push_back(vert_norm.x);
-        //     result.push_back(vert_norm.y);
-        //     result.push_back(vert_norm.z);
-        // } else {
-        //     // TODO: calculate vertex normal from surrounding vertices?
-        //     result.push_back(0.0f);
-        //     result.push_back(0.0f);
-        //     result.push_back(0.0f);
-        // }
+        if (i_face.vertex_has_normal(i)) {
+            glm::vec3 vert_norm = m_vertex_normals[i_face.get_vertex_normal(i)];
+            result.push_back(vert_norm.x);
+            result.push_back(vert_norm.y);
+            result.push_back(vert_norm.z);
+        } else {
+            // TODO: calculate vertex normal from surrounding vertices?
+            result.push_back(nx);
+            result.push_back(ny);
+            result.push_back(nz);
+        }
     }
     return result;
 }
