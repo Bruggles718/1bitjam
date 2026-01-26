@@ -24,6 +24,8 @@
 #include "utils.hpp"
 #include "ScreenGlobals.hpp"
 
+#include <windows.h>
+
 static int update(void* userdata);
 const char* fontpath = "/System/Fonts/Asheville-Sans-14-Bold.pft";
 LCDFont* font = NULL;
@@ -32,7 +34,7 @@ SceneObject submarineObj;
 SceneObject mapObj;
 Camera camera;
 std::vector<float> depth_buffer;
-std::vector<std::vector<float>> bayer_matrix;
+std::vector<std::vector<int>> bayer_matrix;
 
 LCDBitmap* frame_buffer;
 uint8_t* fb_data;
@@ -242,10 +244,16 @@ void control_object(PlaydateAPI* pd, SceneObject* obj) {
 
 }
 
+int total = 0;
+int count = 0;
+
 glm::quat rotation_quat;
 
 static int update(void* userdata)
 {
+	LARGE_INTEGER frequency, start, end;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
 	std::fill(depth_buffer.begin(), depth_buffer.end(), -INFINITY);
 
 	PlaydateAPI* pd = (PlaydateAPI*)userdata;
@@ -253,12 +261,21 @@ static int update(void* userdata)
 	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
 	control_object(pd, &submarineObj);
-	submarineObj.draw(camera, pd, depth_buffer, bayer_matrix);
-	mapObj.draw(camera, pd, depth_buffer, bayer_matrix);
+	float* depth_data = depth_buffer.data();
+	submarineObj.draw(camera, pd, depth_data, bayer_matrix);
+	mapObj.draw(camera, pd, depth_data, bayer_matrix);
 
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, kBitmapUnflipped);
         
 	pd->system->drawFPS(0,0);
+
+	QueryPerformanceCounter(&end);
+	double elapsed_time_us = (double)(end.QuadPart - start.QuadPart) * 1000000.0 / frequency.QuadPart;
+	total += elapsed_time_us;
+	count += 1;
+	double real_elapsed = (double)total / count;
+	pd->system->logToConsole("This frame used: %f microseconds\n", elapsed_time_us);
+	pd->system->logToConsole("AVG CPU time used: %f microseconds\n", real_elapsed);
 
 	return 1;
 }

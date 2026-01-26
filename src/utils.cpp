@@ -18,7 +18,7 @@ float clamp_to_screen_x(float f) {
     return fmaxf(0, fminf(f, SCREEN_WIDTH - 1));
 }
 
-std::vector<std::vector<float>> bayerMatrix(int n) {
+std::vector<std::vector<int>> bayerMatrix(int n) {
     std::vector<std::vector<int>> B = {{0, 2}, {3, 1}};
     int size = 2;
 
@@ -44,5 +44,11 @@ std::vector<std::vector<float>> bayerMatrix(int n) {
             normalized[y][x] = B[y][x] / float(n * n);
         }
     }
-    return normalized;
+    std::vector<std::vector<int>> int_normalized(n, std::vector<int>(n));
+    for (int y = 0; y < n; ++y) {
+        for (int x = 0; x < n; ++x) {
+            int_normalized[y][x] = normalized[y][x] * 255;
+        }
+    }
+    return int_normalized;
 }

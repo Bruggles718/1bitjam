@@ -178,12 +178,45 @@ static inline void setup_edge_clipvert(EdgeData* edge, ClipVert* v1, ClipVert* v
     edge->z_start = v1->z;
     edge->z_end = v2->z;
 
+    float dy = edge->y_end - edge->y_start;
+    edge->dx = (edge->x_end - edge->x_start) / dy;
+    edge->dz = (edge->z_end - edge->z_start) / dy;
+
     edge->normal_start = {v1->nx, v1->ny, v1->nz};
     edge->normal_end = {v2->nx, v2->ny, v2->nz};
 
     edge->x = v1->x;
     edge->z = v1->z;
     edge->normal = { v1->nx, v1->ny, v1->nz };
+    if (edge->y_start >= edge->y_end) {  // No scanlines to draw
+        edge->dx = 0;
+        edge->dz = 0;
+    }
+}
+
+static inline bool clip_edge(EdgeData* edge)
+{
+    int y0 = edge->y_start;
+    int y1 = edge->y_end;
+
+    /* Fully offscreen */
+    if (y1 <= 0 || y0 >= SCREEN_HEIGHT)
+        return false;
+
+    /* Clip top */
+    if (y0 < 0) {
+        float dy = (float)(-y0);
+        edge->x += edge->dx * dy;
+        edge->z += edge->dz * dy;
+        edge->y_start = 0;
+    }
+
+    /* Clip bottom */
+    if (y1 > SCREEN_HEIGHT) {
+        edge->y_end = SCREEN_HEIGHT;
+    }
+
+    return edge->y_start < edge->y_end;
 }
 
 static ClipVert intersect_near(ClipVert a, ClipVert b, float near_z)
@@ -291,43 +324,54 @@ void normalize_clipvert(ClipVert* v) {
 }
 
 /* Fill a horizontal span with integrated edge drawing */
-static inline void fill_span(PlaydateAPI* pd, std::vector<float>& depth_buffer, 
-    std::vector<std::vector<float>>& bayer_matrix,
-    int y, float x_left, float x_right,
-    float z_left, float z_right, glm::vec3 n_left, glm::vec3 n_right,
-    int draw_left_edge, int draw_right_edge) {
+static inline void fill_span(PlaydateAPI* pd, float* depth_buffer, 
+    std::vector<std::vector<int>>& bayer_matrix,
+    int y, EdgeData& left, EdgeData& right) {
 
-    int x_start = std::max(0, (int)ceilf(x_left));
-    int x_end = std::min(SCREEN_WIDTH - 1, (int)floorf(x_right));
+    float lt = ((float)y - left.y_start) / (left.y_end - left.y_start);
+    left.x = my_lerp(left.x_start, left.x_end, lt);
+    left.z = my_lerp(left.z_start, left.z_end, lt);
+    left.normal = glm::mix(left.normal_start, left.normal_end, lt);
+    float rt = ((float)y - right.y_start) / (right.y_end - right.y_start);
+    right.x = my_lerp(right.x_start, right.x_end, rt);
+    right.z = my_lerp(right.z_start, right.z_end, rt);
+    right.normal = glm::mix(right.normal_start, right.normal_end, rt);
+
+
+    int x_start = max_int(0, (int)ceilf(left.x));
+    int x_end = min_int(SCREEN_WIDTH - 1, (int)floorf(right.x));
 
     if (x_start > x_end) return;
 
-    float span_width = x_right - x_left;
+    float span_width = right.x - left.x;
     if (fabsf(span_width) < 0.001f) return;
 
-    float dz = (z_right - z_left) / span_width;
-    float prestep = x_start - x_left;
-    float z = z_left + dz * prestep;
+    float dz = (right.z - left.z) / span_width;
+    float prestep = x_start - left.x;
+    float z = left.z + dz * prestep;
 
     int idx = y * SCREEN_WIDTH + x_start;
     int bayer_y = y & 7;
     int bayer_x = x_start & 7;
 
+    int* bayer_row = bayer_matrix[bayer_y].data();
+
     const int edge_width = 1;  /* Change this to adjust edge thickness */
     const float edge_depth_offset = 0.0001f;  /* Bring edges slightly closer */
 
-    float norm_diff = n_left.y - n_right.y;
+    float norm_diff = left.normal.y - right.normal.y;
     float dn = norm_diff / span_width;
-    float current_normal = n_left.y + dn * prestep;
-    float brightness = (current_normal + 1) * 0.5f;
+    float current_normal = left.normal.y + dn * prestep;
 
     for (int x = x_start; x <= x_end; x++, idx++, bayer_x = (bayer_x + 1) & 7) {
         /* Draw outer 2 pixels on each edge in black */
+        float brightness = (current_normal + 1) * 0.5f;
+        int lum = brightness * 255;
         int dist_from_left = x - x_start;
         int dist_from_right = x_end - x;
 
-        int is_left_edge = (dist_from_left < edge_width) && draw_left_edge;
-        int is_right_edge = (dist_from_right < edge_width) && draw_right_edge;
+        bool is_left_edge = (dist_from_left < edge_width);
+        bool is_right_edge = (dist_from_right < edge_width);
 
         /* Edges use offset depth to always appear on top */
         float z_to_test = (is_left_edge || is_right_edge) ?
@@ -341,17 +385,23 @@ static inline void fill_span(PlaydateAPI* pd, std::vector<float>& depth_buffer,
                 color = kColorBlack;
             }
             else {
-                color = (brightness > bayer_matrix[bayer_y][bayer_x]) ? kColorWhite : kColorBlack;
+                color = (lum > bayer_row[bayer_x]) ? kColorWhite : kColorBlack;
             }
             setPixel(pd, x, y, color);
         }
         z += dz;
         current_normal += dn;
     }
+    ////float lt = ((float)y - left.y_start) / (left.y_end - left.y_start);
+    //left.x += left.dx;
+    //left.z += left.dz;
+    ////float rt = ((float)y - right.y_start) / (right.y_end - right.y_start);
+    //right.x += right.dx;
+    //right.z += right.dz;
 }
 
 void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::mat4& projection, 
-    std::vector<float>& depth_buffer, std::vector<std::vector<float>>& bayer_matrix) {
+    float* depth_buffer, std::vector<std::vector<int>>& bayer_matrix) {
     glm::mat4 mv = view * model;
     glm::mat4 mvp = projection * mv;
 
@@ -418,9 +468,9 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
         //float brightness = (ny + len) * 0.5f / len;
 
         ClipVert vin[3] = {
-            { view_pos1[0], view_pos1[1], view_pos1[2], n1[0], n1[1], n1[2]},
-            { view_pos2[0], view_pos2[1], view_pos2[2], n2[0], n2[1], n2[2] },
-            { view_pos3[0], view_pos3[1], view_pos3[2], n3[0], n3[1], n3[2] }
+            { view_pos1.x, view_pos1.y, view_pos1.z, n1.x, n1.y, n1.z },
+            { view_pos2.x, view_pos2.y, view_pos2.z, n2.x, n2.y, n2.z },
+            { view_pos3.x, view_pos3.y, view_pos3.z, n3.x, n3.y, n3.z }
         };
 
         ClipVert vout[6];
@@ -514,24 +564,13 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
 
             for (int y = y_top; y < y_mid; y++) {
                 
-                float lt = ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start);
-                left_edge->x = my_lerp((float)left_edge->x_start, (float)left_edge->x_end, lt);
-                left_edge->z = my_lerp((float)left_edge->z_start, (float)left_edge->z_end, lt);
-                //left_edge->z += left_edge->dz;
-                float rt = ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start);
-                right_edge->x = my_lerp((float)right_edge->x_start, (float)right_edge->x_end, rt);
-                right_edge->z = my_lerp((float)right_edge->z_start, (float)right_edge->z_end, rt);
-                //right_edge->z += right_edge->dz;
                 
-                /* Draw left edge if it's the short edge, right edge if it's the short edge */
-                int draw_left = !middle_is_right;  /* short edge on left */
-                int draw_right = middle_is_right;   /* short edge on right */
+                //right_edge->z += right_edge->dz
+
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
                 if (y >= 0 && y < SCREEN_HEIGHT) {
                     fill_span(pd, depth_buffer, bayer_matrix, y,
-                        left_edge->x, right_edge->x,
-                        left_edge->z, right_edge->z, left_edge->normal, right_edge->normal,
-                        1, 1);
+                        *left_edge, *right_edge);
                 }
             }
 
@@ -540,26 +579,12 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
             right_edge = middle_is_right ? &edge_short2 : &edge_long;
 
             for (int y = y_mid; y <= y_bottom; y++) {
-
-                float lt = ((float)y - left_edge->y_start) / (left_edge->y_end - left_edge->y_start);
-                left_edge->x = my_lerp((float)left_edge->x_start, (float)left_edge->x_end, lt);
-                left_edge->z = my_lerp((float)left_edge->z_start, (float)left_edge->z_end, lt);
-                //left_edge->z += left_edge->dz;
-                float rt = ((float)y - right_edge->y_start) / (right_edge->y_end - right_edge->y_start);
-                right_edge->x = my_lerp((float)right_edge->x_start, (float)right_edge->x_end, rt);
-                right_edge->z = my_lerp((float)right_edge->z_start, (float)right_edge->z_end, rt);
                 //right_edge->z += right_edge->dz;
 
-
-                /* Draw left edge if it's the short edge, right edge if it's the short edge */
-                int draw_left = !middle_is_right;  /* short edge on left */
-                int draw_right = middle_is_right;   /* short edge on right */
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
                 if (y >= 0 && y < SCREEN_HEIGHT) {
                     fill_span(pd, depth_buffer, bayer_matrix, y,
-                        left_edge->x, right_edge->x,
-                        left_edge->z, right_edge->z, left_edge->normal, right_edge->normal,
-                        1, 1);
+                        *left_edge, *right_edge);
                 }
             }
         }
@@ -590,8 +615,8 @@ void SceneObject::send_vertex_data_to_gpu() {
     m_vertex_data->send_to_gpu();
 }
 
-void SceneObject::draw(const Camera& i_camera, PlaydateAPI* pd, std::vector<float>& depth_buffer,
-    std::vector<std::vector<float>>& bayer_matrix) {
+void SceneObject::draw(const Camera& i_camera, PlaydateAPI* pd, float* depth_buffer,
+    std::vector<std::vector<int>>& bayer_matrix) {
     // glm::mat4 model = glm::translate(glm::mat4(1.0f), m_transform.m_position);
     // model = model * glm::mat4_cast(m_transform.m_rotation);
     // model = glm::scale(model, m_transform.m_scale);

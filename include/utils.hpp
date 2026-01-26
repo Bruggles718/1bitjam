@@ -24,4 +24,4 @@ bool bad_float(float f);
 
 float clamp_to_screen_x(float f);
 
-std::vector<std::vector<float>> bayerMatrix(int n);
+std::vector<std::vector<int>> bayerMatrix(int n);
