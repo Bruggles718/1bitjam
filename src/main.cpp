@@ -36,14 +36,14 @@ LCDBitmap* frame_buffer;
 uint8_t* fb_data;
 int rowbytes;
 
-#ifdef _WINDLL
-__declspec(dllexport)
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
+#ifdef _WINDLL
+__declspec(dllexport)
+#endif
 int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 {
 	eventHandler_pdnewlib(pd, event, arg);
