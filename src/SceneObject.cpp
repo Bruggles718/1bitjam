@@ -132,7 +132,6 @@ void drawLineZThick(PlaydateAPI* pd,
 
 typedef struct {
     int x;           /* Current x position */
-    int y;
     int z;           /* Current z */
     int dx;
     int dy;
@@ -191,7 +190,6 @@ static inline void setup_edge_clipvert(EdgeData* edge, ClipVert* v1, ClipVert* v
     edge->normal_end = {v2->nx, v2->ny, v2->nz};
 
     edge->x = edge->x_start;
-    edge->y = edge->y_start;
     edge->z = edge->z_start;
     edge->normal = { v1->nx, v1->ny, v1->nz };
 
@@ -248,6 +246,23 @@ static inline void step_edge(EdgeData& edge, int y) {
             break;
         }
     }
+}
+
+static inline void step_edge_constant(EdgeData& edge, int target_y) {
+    int dy_steps = target_y - edge.y_start;
+    if (dy_steps <= 0) return;
+
+    int total_dy = -edge.dy;
+    if (total_dy == 0) return;
+
+    int total_dx = edge.dx;
+    int total_dz = edge.dz;
+
+    int x_steps = (total_dx * dy_steps) / total_dy;
+    int z_steps = (total_dz * dy_steps) / total_dy;
+
+    edge.x = edge.x_start + x_steps * edge.sx;
+    edge.z = edge.z_start + z_steps * edge.sz;
 }
 
 static inline void clamp_edge(EdgeData& edge, int y_top) {
@@ -370,16 +385,6 @@ static inline void fill_span(PlaydateAPI* pd, int* depth_buffer,
     std::vector<std::vector<int>>& bayer_matrix,
     int y, EdgeData& left, EdgeData& right) {
 
-    float lt = ((float)y - left.y_start) / (left.y_end - left.y_start);
-    //left.x = my_lerp(left.x_start, left.x_end, lt);
-    //left.z = my_lerp(left.z_start, left.z_end, lt);
-    left.normal = glm::mix(left.normal_start, left.normal_end, lt);
-    float rt = ((float)y - right.y_start) / (right.y_end - right.y_start);
-    //right.x = my_lerp(right.x_start, right.x_end, rt);
-    //right.z = my_lerp(right.z_start, right.z_end, rt);
-    right.normal = glm::mix(right.normal_start, right.normal_end, rt);
-
-
     int x_start = max_int(0, left.x);
     int x_end = min_int(SCREEN_WIDTH - 1, right.x);
 
@@ -440,9 +445,17 @@ static inline void fill_spans_y(PlaydateAPI* pd, int* depth_buffer,
     std::vector<std::vector<int>>& bayer_matrix,
     int y_start, int y_end, EdgeData& left, EdgeData& right) {
     for (int y = y_start; y < y_end; y += 1) {
+        step_edge_constant(left, y);
+        step_edge_constant(right, y);
+
+        float lt = ((float)y - left.y_start) / (left.y_end - left.y_start);
+        left.normal = glm::mix(left.normal_start, left.normal_end, lt);
+        float rt = ((float)y - right.y_start) / (right.y_end - right.y_start);
+        right.normal = glm::mix(right.normal_start, right.normal_end, rt);
+
         fill_span(pd, depth_buffer, bayer_matrix, y, left, right);
-        step_edge(left, y);
-        step_edge(right, y);
+        //step_edge(left, y);
+        //step_edge(right, y);
     }
 }
 
@@ -614,21 +627,21 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
             /* Rasterize top half (v1 to v2) */
             int y_mid = min_int(SCREEN_HEIGHT - 1, max_int(0, (int)ceilf(v2.y)));
 
-            if (y_top > edge_long.y_start) {
-                clamp_edge(edge_long, y_top);
-            }
-            if (y_top > edge_short1.y_start) {
-                clamp_edge(edge_short1, y_top);
-            }
+            //if (y_top > edge_long.y_start) {
+            //    clamp_edge(edge_long, y_top);
+            //}
+            //if (y_top > edge_short1.y_start) {
+            //    clamp_edge(edge_short1, y_top);
+            //}
 
             EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
             EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
 
             fill_spans_y(pd, depth_buffer, bayer_matrix, y_top, y_mid, *left_edge, *right_edge);
 
-            if (y_mid > edge_short2.y_start) {
-                clamp_edge(edge_short2, y_mid);
-            }
+            //if (y_mid > edge_short2.y_start) {
+            //    clamp_edge(edge_short2, y_mid);
+            //}
 
             /* Rasterize bottom half (v2 to v3) */
             left_edge = middle_is_right ? &edge_long : &edge_short2;
