@@ -132,6 +132,7 @@ void drawLineZThick(PlaydateAPI* pd,
 
 typedef struct {
     int x;           /* Current x position */
+    int y;
     int z;           /* Current z */
     int dx;
     int dy;
@@ -140,6 +141,7 @@ typedef struct {
     int sy;
     int sz;
     int error;
+    int error_z;
     int y_start;       /* Starting scanline */
     int y_end;         /* Ending scanline */
     int x_start;
@@ -180,14 +182,16 @@ static inline void setup_edge_clipvert(EdgeData* edge, ClipVert* v1, ClipVert* v
     edge->y_end = (int)ceilf(v2->y);
     edge->x_start = (int)ceilf(v1->x);
     edge->x_end = (int)ceilf(v2->x);
-    edge->z_start = (int)(v1->z * INT_MAX);
-    edge->z_end = (int)(v2->z * INT_MAX);
+    int z_scale = INT16_MAX;
+    edge->z_start = (int)(v1->z * z_scale);
+    edge->z_end = (int)(v2->z * z_scale);
 
 
     edge->normal_start = {v1->nx, v1->ny, v1->nz};
     edge->normal_end = {v2->nx, v2->ny, v2->nz};
 
     edge->x = edge->x_start;
+    edge->y = edge->y_start;
     edge->z = edge->z_start;
     edge->normal = { v1->nx, v1->ny, v1->nz };
 
@@ -195,8 +199,11 @@ static inline void setup_edge_clipvert(EdgeData* edge, ClipVert* v1, ClipVert* v
     edge->sx = edge->x_start < edge->x_end ? 1 : -1;
     edge->dy = -abs(edge->y_end - edge->y_start);
     edge->sy = edge->y_start < edge->y_end ? 1 : -1;
+    edge->dz = abs(edge->z_end - edge->z_start);
+    edge->sz = edge->z_start < edge->z_end ? 1 : -1;
 
     edge->error = edge->dx + edge->dy;
+    edge->error_z = edge->dz + edge->dy;
 }
 
 static inline void step_edge(EdgeData& edge, int y) {
@@ -219,6 +226,38 @@ static inline void step_edge(EdgeData& edge, int y) {
             edge.error += edge.dx;
             break;
         }
+    }
+
+    while (true) {
+        if (edge.z == edge.z_end && y == edge.y_end) {
+            break;
+        }
+        int e2 = 2 * edge.error_z;
+        if (e2 >= edge.dy) {
+            if (edge.z == edge.z_end) {
+                break;
+            }
+            edge.error_z += edge.dy;
+            edge.z += edge.sz;
+        }
+        if (e2 <= edge.dz) {
+            if (y == edge.y_end) {
+                break;
+            }
+            edge.error_z += edge.dz;
+            break;
+        }
+    }
+}
+
+static inline void clamp_edge(EdgeData& edge, int y_top) {
+    int y_diff = y_top - edge.y_start;
+    if (y_diff > 0) {
+        int y_span = (edge.y_end - edge.y_start);
+        float lt = y_span != 0 ? (float)(y_top - edge.y_start) / y_span : 0.0f;
+        edge.x = my_lerp(edge.x_start, edge.x_end, lt);
+        edge.z = my_lerp(edge.z_start, edge.z_end, lt);
+        edge.normal = glm::mix(edge.normal_start, edge.normal_end, lt);
     }
 }
 
@@ -332,12 +371,12 @@ static inline void fill_span(PlaydateAPI* pd, int* depth_buffer,
     int y, EdgeData& left, EdgeData& right) {
 
     float lt = ((float)y - left.y_start) / (left.y_end - left.y_start);
-    left.x = my_lerp(left.x_start, left.x_end, lt);
-    left.z = my_lerp(left.z_start, left.z_end, lt);
+    //left.x = my_lerp(left.x_start, left.x_end, lt);
+    //left.z = my_lerp(left.z_start, left.z_end, lt);
     left.normal = glm::mix(left.normal_start, left.normal_end, lt);
     float rt = ((float)y - right.y_start) / (right.y_end - right.y_start);
-    right.x = my_lerp(right.x_start, right.x_end, rt);
-    right.z = my_lerp(right.z_start, right.z_end, rt);
+    //right.x = my_lerp(right.x_start, right.x_end, rt);
+    //right.z = my_lerp(right.z_start, right.z_end, rt);
     right.normal = glm::mix(right.normal_start, right.normal_end, rt);
 
 
@@ -402,8 +441,8 @@ static inline void fill_spans_y(PlaydateAPI* pd, int* depth_buffer,
     int y_start, int y_end, EdgeData& left, EdgeData& right) {
     for (int y = y_start; y < y_end; y += 1) {
         fill_span(pd, depth_buffer, bayer_matrix, y, left, right);
-        //step_edge(left, y);
-        //step_edge(right, y);
+        step_edge(left, y);
+        step_edge(right, y);
     }
 }
 
@@ -574,10 +613,22 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
 
             /* Rasterize top half (v1 to v2) */
             int y_mid = min_int(SCREEN_HEIGHT - 1, max_int(0, (int)ceilf(v2.y)));
+
+            if (y_top > edge_long.y_start) {
+                clamp_edge(edge_long, y_top);
+            }
+            if (y_top > edge_short1.y_start) {
+                clamp_edge(edge_short1, y_top);
+            }
+
             EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
             EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
 
             fill_spans_y(pd, depth_buffer, bayer_matrix, y_top, y_mid, *left_edge, *right_edge);
+
+            if (y_mid > edge_short2.y_start) {
+                clamp_edge(edge_short2, y_mid);
+            }
 
             /* Rasterize bottom half (v2 to v3) */
             left_edge = middle_is_right ? &edge_long : &edge_short2;
