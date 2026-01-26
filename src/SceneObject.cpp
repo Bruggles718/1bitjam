@@ -133,6 +133,13 @@ void drawLineZThick(PlaydateAPI* pd,
 typedef struct {
     int x;           /* Current x position */
     int z;           /* Current z */
+    int dx;
+    int dy;
+    int dz;
+    int sx;
+    int sy;
+    int sz;
+    int error;
     int y_start;       /* Starting scanline */
     int y_end;         /* Ending scanline */
     int x_start;
@@ -183,6 +190,36 @@ static inline void setup_edge_clipvert(EdgeData* edge, ClipVert* v1, ClipVert* v
     edge->x = edge->x_start;
     edge->z = edge->z_start;
     edge->normal = { v1->nx, v1->ny, v1->nz };
+
+    edge->dx = abs(edge->x_end - edge->x_start);
+    edge->sx = edge->x_start < edge->x_end ? 1 : -1;
+    edge->dy = -abs(edge->y_end - edge->y_start);
+    edge->sy = edge->y_start < edge->y_end ? 1 : -1;
+
+    edge->error = edge->dx + edge->dy;
+}
+
+static inline void step_edge(EdgeData& edge, int y) {
+    while (true) {
+        if (edge.x == edge.x_end && y == edge.y_end) {
+            break;
+        }
+        int e2 = 2 * edge.error;
+        if (e2 >= edge.dy) {
+            if (edge.x == edge.x_end) {
+                break;
+            }
+            edge.error += edge.dy;
+            edge.x += edge.sx;
+        }
+        if (e2 <= edge.dx) {
+            if (y == edge.y_end) {
+                break;
+            }
+            edge.error += edge.dx;
+            break;
+        }
+    }
 }
 
 static ClipVert intersect_near(ClipVert a, ClipVert b, float near_z)
@@ -365,6 +402,8 @@ static inline void fill_spans_y(PlaydateAPI* pd, int* depth_buffer,
     int y_start, int y_end, EdgeData& left, EdgeData& right) {
     for (int y = y_start; y < y_end; y += 1) {
         fill_span(pd, depth_buffer, bayer_matrix, y, left, right);
+        //step_edge(left, y);
+        //step_edge(right, y);
     }
 }
 
