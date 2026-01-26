@@ -568,10 +568,8 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
                 //right_edge->z += right_edge->dz
 
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-                if (y >= 0 && y < SCREEN_HEIGHT) {
-                    fill_span(pd, depth_buffer, bayer_matrix, y,
-                        *left_edge, *right_edge);
-                }
+                fill_span(pd, depth_buffer, bayer_matrix, y,
+                    *left_edge, *right_edge);
             }
 
             /* Rasterize bottom half (v2 to v3) */
@@ -582,10 +580,8 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
                 //right_edge->z += right_edge->dz;
 
                 /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-                if (y >= 0 && y < SCREEN_HEIGHT) {
-                    fill_span(pd, depth_buffer, bayer_matrix, y,
-                        *left_edge, *right_edge);
-                }
+                fill_span(pd, depth_buffer, bayer_matrix, y,
+                    *left_edge, *right_edge);
             }
         }
     }
