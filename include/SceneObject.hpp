@@ -21,7 +21,7 @@ class VertexData {
             glm::mat4& model, 
             glm::mat4& view, 
             glm::mat4& projection, 
-            float* depth_buffer,
+            int* depth_buffer,
             std::vector<std::vector<int>>& bayer_matrix
         );
         void print_vertex_buffer();
@@ -62,7 +62,7 @@ class SceneObject {
         SceneObject(std::shared_ptr<VertexData> i_vertex_data);
         ~SceneObject();
 
-        void draw(const Camera& i_camera, PlaydateAPI* pd, float* depth_buffer,
+        void draw(const Camera& i_camera, PlaydateAPI* pd, int* depth_buffer,
             std::vector<std::vector<int>>& bayer_matrix);
         void set_transform(Transform i_tf);
         void set_position(glm::vec3 i_position);

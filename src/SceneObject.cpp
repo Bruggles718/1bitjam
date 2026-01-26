@@ -131,16 +131,14 @@ void drawLineZThick(PlaydateAPI* pd,
 }
 
 typedef struct {
-    float x;           /* Current x position */
-    float dx;          /* x increment per scanline */
-    float z;           /* Current z (inverse depth) */
-    float dz;          /* z increment per scanline */
+    int x;           /* Current x position */
+    int z;           /* Current z */
     int y_start;       /* Starting scanline */
     int y_end;         /* Ending scanline */
     int x_start;
     int x_end;
-    float z_start;
-    float z_end;
+    int z_start;
+    int z_end;
     glm::vec3 normal_start;
     glm::vec3 normal_end;
     glm::vec3 normal;
@@ -175,48 +173,16 @@ static inline void setup_edge_clipvert(EdgeData* edge, ClipVert* v1, ClipVert* v
     edge->y_end = (int)ceilf(v2->y);
     edge->x_start = (int)ceilf(v1->x);
     edge->x_end = (int)ceilf(v2->x);
-    edge->z_start = v1->z;
-    edge->z_end = v2->z;
+    edge->z_start = (int)(v1->z * INT_MAX);
+    edge->z_end = (int)(v2->z * INT_MAX);
 
-    float dy = edge->y_end - edge->y_start;
-    edge->dx = (edge->x_end - edge->x_start) / dy;
-    edge->dz = (edge->z_end - edge->z_start) / dy;
 
     edge->normal_start = {v1->nx, v1->ny, v1->nz};
     edge->normal_end = {v2->nx, v2->ny, v2->nz};
 
-    edge->x = v1->x;
-    edge->z = v1->z;
+    edge->x = edge->x_start;
+    edge->z = edge->z_start;
     edge->normal = { v1->nx, v1->ny, v1->nz };
-    if (edge->y_start >= edge->y_end) {  // No scanlines to draw
-        edge->dx = 0;
-        edge->dz = 0;
-    }
-}
-
-static inline bool clip_edge(EdgeData* edge)
-{
-    int y0 = edge->y_start;
-    int y1 = edge->y_end;
-
-    /* Fully offscreen */
-    if (y1 <= 0 || y0 >= SCREEN_HEIGHT)
-        return false;
-
-    /* Clip top */
-    if (y0 < 0) {
-        float dy = (float)(-y0);
-        edge->x += edge->dx * dy;
-        edge->z += edge->dz * dy;
-        edge->y_start = 0;
-    }
-
-    /* Clip bottom */
-    if (y1 > SCREEN_HEIGHT) {
-        edge->y_end = SCREEN_HEIGHT;
-    }
-
-    return edge->y_start < edge->y_end;
 }
 
 static ClipVert intersect_near(ClipVert a, ClipVert b, float near_z)
@@ -324,7 +290,7 @@ void normalize_clipvert(ClipVert* v) {
 }
 
 /* Fill a horizontal span with integrated edge drawing */
-static inline void fill_span(PlaydateAPI* pd, float* depth_buffer, 
+static inline void fill_span(PlaydateAPI* pd, int* depth_buffer, 
     std::vector<std::vector<int>>& bayer_matrix,
     int y, EdgeData& left, EdgeData& right) {
 
@@ -338,8 +304,8 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_buffer,
     right.normal = glm::mix(right.normal_start, right.normal_end, rt);
 
 
-    int x_start = max_int(0, (int)ceilf(left.x));
-    int x_end = min_int(SCREEN_WIDTH - 1, (int)floorf(right.x));
+    int x_start = max_int(0, left.x);
+    int x_end = min_int(SCREEN_WIDTH - 1, right.x);
 
     if (x_start > x_end) return;
 
@@ -357,7 +323,7 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_buffer,
     int* bayer_row = bayer_matrix[bayer_y].data();
 
     const int edge_width = 1;  /* Change this to adjust edge thickness */
-    const float edge_depth_offset = 0.0001f;  /* Bring edges slightly closer */
+    const float edge_depth_offset = 1;  /* Bring edges slightly closer */
 
     float norm_diff = left.normal.y - right.normal.y;
     float dn = norm_diff / span_width;
@@ -377,7 +343,7 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_buffer,
         float z_to_test = (is_left_edge || is_right_edge) ?
             z + edge_depth_offset : z;
         if (idx < 0 || idx >= SCREEN_WIDTH * SCREEN_HEIGHT) continue;
-        if (z_to_test > depth_buffer[idx]) {
+        if (z_to_test < depth_buffer[idx]) {
             depth_buffer[idx] = z_to_test;
 
             int color;
@@ -392,16 +358,18 @@ static inline void fill_span(PlaydateAPI* pd, float* depth_buffer,
         z += dz;
         current_normal += dn;
     }
-    ////float lt = ((float)y - left.y_start) / (left.y_end - left.y_start);
-    //left.x += left.dx;
-    //left.z += left.dz;
-    ////float rt = ((float)y - right.y_start) / (right.y_end - right.y_start);
-    //right.x += right.dx;
-    //right.z += right.dz;
+}
+
+static inline void fill_spans_y(PlaydateAPI* pd, int* depth_buffer,
+    std::vector<std::vector<int>>& bayer_matrix,
+    int y_start, int y_end, EdgeData& left, EdgeData& right) {
+    for (int y = y_start; y < y_end; y += 1) {
+        fill_span(pd, depth_buffer, bayer_matrix, y, left, right);
+    }
 }
 
 void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::mat4& projection, 
-    float* depth_buffer, std::vector<std::vector<int>>& bayer_matrix) {
+    int* depth_buffer, std::vector<std::vector<int>>& bayer_matrix) {
     glm::mat4 mv = view * model;
     glm::mat4 mvp = projection * mv;
 
@@ -498,21 +466,29 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
             clip2 = projection * view_pos2;
             clip3 = projection * view_pos3;
 
-            float inv_w1 = 1.0f / clip1[3];
-            float inv_w2 = 1.0f / clip2[3];
-            float inv_w3 = 1.0f / clip3[3];
+            float inv_w1 = 1.0f / clip1.w;
+            float inv_w2 = 1.0f / clip2.w;
+            float inv_w3 = 1.0f / clip3.w;
 
-            float x1 = (clip1[0] * inv_w1 + 1.0f) * hw;
-            float y1 = (1.0f - clip1[1] * inv_w1) * hh;
-            float x2 = (clip2[0] * inv_w2 + 1.0f) * hw;
-            float y2 = (1.0f - clip2[1] * inv_w2) * hh;
-            float x3 = (clip3[0] * inv_w3 + 1.0f) * hw;
-            float y3 = (1.0f - clip3[1] * inv_w3) * hh;
+            float x1 = (clip1.x * inv_w1 + 1.0f) * hw;
+            float y1 = (1.0f - clip1.y * inv_w1) * hh;
+            float x2 = (clip2.x * inv_w2 + 1.0f) * hw;
+            float y2 = (1.0f - clip2.y * inv_w2) * hh;
+            float x3 = (clip3.x * inv_w3 + 1.0f) * hw;
+            float y3 = (1.0f - clip3.y * inv_w3) * hh;
 
             // After projection and screen transform
-            float z1 = 1.0f / -view_pos1[2];  // Use reciprocal of view Z
-            float z2 = 1.0f / -view_pos2[2];
-            float z3 = 1.0f / -view_pos3[2];
+            //float z1 = 1.0f / -view_pos1.z;  // Use reciprocal of view Z
+            //float z2 = 1.0f / -view_pos2.z;
+            //float z3 = 1.0f / -view_pos3.z;
+            float z1 = clip1.z * inv_w1;
+            float z2 = clip2.z * inv_w2;
+            float z3 = clip3.z * inv_w3;
+
+            z1 = z1 * 0.5f + 0.5f;
+            z2 = z2 * 0.5f + 0.5f;
+            z3 = z3 * 0.5f + 0.5f;
+
 
             float min_x = min3(x1, x2, x3);
             float max_x = max3(x1, x2, x3);
@@ -562,27 +538,13 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
             EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
             EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
 
-            for (int y = y_top; y < y_mid; y++) {
-                
-                
-                //right_edge->z += right_edge->dz
-
-                /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-                fill_span(pd, depth_buffer, bayer_matrix, y,
-                    *left_edge, *right_edge);
-            }
+            fill_spans_y(pd, depth_buffer, bayer_matrix, y_top, y_mid, *left_edge, *right_edge);
 
             /* Rasterize bottom half (v2 to v3) */
             left_edge = middle_is_right ? &edge_long : &edge_short2;
             right_edge = middle_is_right ? &edge_short2 : &edge_long;
 
-            for (int y = y_mid; y <= y_bottom; y++) {
-                //right_edge->z += right_edge->dz;
-
-                /* ALWAYS draw both edges - left is always an edge, right is always an edge */
-                fill_span(pd, depth_buffer, bayer_matrix, y,
-                    *left_edge, *right_edge);
-            }
+            fill_spans_y(pd, depth_buffer, bayer_matrix, y_mid, y_bottom + 1, *left_edge, *right_edge);
         }
     }
 }
@@ -611,7 +573,7 @@ void SceneObject::send_vertex_data_to_gpu() {
     m_vertex_data->send_to_gpu();
 }
 
-void SceneObject::draw(const Camera& i_camera, PlaydateAPI* pd, float* depth_buffer,
+void SceneObject::draw(const Camera& i_camera, PlaydateAPI* pd, int* depth_buffer,
     std::vector<std::vector<int>>& bayer_matrix) {
     // glm::mat4 model = glm::translate(glm::mat4(1.0f), m_transform.m_position);
     // model = model * glm::mat4_cast(m_transform.m_rotation);

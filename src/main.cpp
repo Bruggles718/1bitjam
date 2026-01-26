@@ -31,7 +31,7 @@ LCDFont* font = NULL;
 SceneObject submarineObj;
 SceneObject mapObj;
 Camera camera;
-std::vector<float> depth_buffer;
+std::vector<int> depth_buffer;
 std::vector<std::vector<int>> bayer_matrix;
 
 LCDBitmap* frame_buffer;
@@ -44,54 +44,54 @@ extern "C" {
 
 
 #ifdef _WINDLL
-__declspec(dllexport)
+	__declspec(dllexport)
 #endif
-int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
-{
-	eventHandler_pdnewlib(pd, event, arg);
-	(void)arg; // arg is currently only used for event = kEventKeyPressed
-
-	if ( event == kEventInit )
+		int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 	{
-		const char* err;
-		font = pd->graphics->loadFont(fontpath, &err);
-		
-		if ( font == NULL )
-			pd->system->error("%s:%i Couldn't load font %s: %s", __FILE__, __LINE__, fontpath, err);
+		eventHandler_pdnewlib(pd, event, arg);
+		(void)arg; // arg is currently only used for event = kEventKeyPressed
 
-		WFObjLoader wf_obj_loader;
+		if (event == kEventInit)
+		{
+			const char* err;
+			font = pd->graphics->loadFont(fontpath, &err);
 
-		//scene_object = (SceneObject*)malloc(sizeof(SceneObject));
+			if (font == NULL)
+				pd->system->error("%s:%i Couldn't load font %s: %s", __FILE__, __LINE__, fontpath, err);
 
-		submarineObj = wf_obj_loader.create_scene_object_from_file("submarine.obj", pd);
-		mapObj = wf_obj_loader.create_scene_object_from_file("map.obj", pd);
+			WFObjLoader wf_obj_loader;
 
-		submarineObj.set_position(glm::vec3(0.0f, 0.0f, 0.0f));
-		mapObj.set_position(glm::vec3(0.0f, 0.0f, 0.0f));
-		depth_buffer.resize(SCREEN_WIDTH * SCREEN_HEIGHT, -INFINITY);
-		bayer_matrix = bayerMatrix(512);
+			//scene_object = (SceneObject*)malloc(sizeof(SceneObject));
 
-		frame_buffer = pd->graphics->newBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, kColorWhite);
-		int width, height;
-		pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &fb_data);
+			submarineObj = wf_obj_loader.create_scene_object_from_file("submarine.obj", pd);
+			mapObj = wf_obj_loader.create_scene_object_from_file("map.obj", pd);
 
-		pd->system->setPeripheralsEnabled(kAccelerometer);
+			submarineObj.set_position(glm::vec3(0.0f, 0.0f, 0.0f));
+			mapObj.set_position(glm::vec3(0.0f, 0.0f, 0.0f));
+			depth_buffer.resize(SCREEN_WIDTH * SCREEN_HEIGHT, -INFINITY);
+			bayer_matrix = bayerMatrix(512);
 
-		pd->display->setScale(PIXEL_SCALE);
+			frame_buffer = pd->graphics->newBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, kColorWhite);
+			int width, height;
+			pd->graphics->getBitmapData(frame_buffer, &width, &height, &rowbytes, NULL, &fb_data);
 
-		// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
-		pd->system->setUpdateCallback(update, pd);
+			pd->system->setPeripheralsEnabled(kAccelerometer);
+
+			pd->display->setScale(PIXEL_SCALE);
+
+			// Note: If you set an update callback in the kEventInit handler, the system assumes the game is pure C and doesn't run any Lua code in the game
+			pd->system->setUpdateCallback(update, pd);
+		}
+
+		return 0;
 	}
-	
-	return 0;
-}
 #ifdef __cplusplus
 }
 #endif
 
 void setPixel(PlaydateAPI* pd, int x, int y, int color) {
-    if (x >= SCREEN_WIDTH || x < 0 || y > SCREEN_HEIGHT || y < 0) return;
-    drawpixel(fb_data, x, y, rowbytes, color);
+	if (x >= SCREEN_WIDTH || x < 0 || y > SCREEN_HEIGHT || y < 0) return;
+	drawpixel(fb_data, x, y, rowbytes, color);
 }
 
 
@@ -161,7 +161,7 @@ glm::quat calculate_input_versor(PlaydateAPI* pd, float pitch_scale, float roll_
 
 	glm::quat q_yaw = glm::angleAxis(glm::radians(pd->system->getCrankAngle()), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	glm::quat q_final= q_yaw * corrected_tilt;
+	glm::quat q_final = q_yaw * corrected_tilt;
 
 	return glm::normalize(q_final);
 
@@ -246,20 +246,20 @@ glm::quat rotation_quat;
 
 static int update(void* userdata)
 {
-	std::fill(depth_buffer.begin(), depth_buffer.end(), -INFINITY);
+	std::fill(depth_buffer.begin(), depth_buffer.end(), INT_MAX);
 
 	PlaydateAPI* pd = (PlaydateAPI*)userdata;
 
 	pd->graphics->clearBitmap(frame_buffer, kColorWhite);
 
 	control_object(pd, &submarineObj);
-	float* depth_data = depth_buffer.data();
+	int* depth_data = depth_buffer.data();
 	submarineObj.draw(camera, pd, depth_data, bayer_matrix);
 	mapObj.draw(camera, pd, depth_data, bayer_matrix);
 
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, kBitmapUnflipped);
-        
-	pd->system->drawFPS(0,0);
+
+	pd->system->drawFPS(0, 0);
 
 	return 1;
 }
