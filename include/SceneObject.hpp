@@ -71,6 +71,7 @@ class SceneObject {
         void set_scale(glm::vec3 i_scale);
         void set_diffuse_color(glm::vec3 i_diffuse_color);
         void set_specular_strength(float i_specular_strength);
+        Transform get_transform();
     private:
         void send_vertex_data_to_gpu();
         void pre_draw(const Camera& i_camera, int i_screen_width, int i_screen_height);

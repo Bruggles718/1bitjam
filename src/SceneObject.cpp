@@ -603,7 +603,7 @@ void SceneObject::draw(const Camera& i_camera, PlaydateAPI* pd, std::vector<floa
     glm::mat4 perspective = glm::perspective(
         glm::radians(45.0f),
         (float)SCREEN_WIDTH/(float)SCREEN_HEIGHT,
-        0.1f,
+        NEAR_PLANE,
         1000.0f);
     m_vertex_data->draw(pd, model, view, perspective, depth_buffer, bayer_matrix);
 }
@@ -629,4 +629,8 @@ void SceneObject::set_diffuse_color(glm::vec3 i_diffuse_color) {
 }
 void SceneObject::set_specular_strength(float i_specular_strength) {
     m_specular_strength = i_specular_strength;
+}
+
+Transform SceneObject::get_transform() {
+    return m_transform;
 }
