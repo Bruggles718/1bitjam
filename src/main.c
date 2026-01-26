@@ -16,8 +16,10 @@
 #include "WFObjLoader.h"
 #include "ScreenGlobals.h"
 #include "SBufferRenderer.h"
+#include <windows.h>
 
 #if TARGET_PLAYDATE
+
 void _close(void)
 {
 }
@@ -108,6 +110,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 		submarineObj = (SceneObject*)malloc(sizeof(SceneObject));
 		*submarineObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "submarine.obj", pd);
 		mapObj = (SceneObject*)malloc(sizeof(SceneObject));
+		//*mapObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "bunny_centered.obj", pd);
 		*mapObj = wfobjloader_create_scene_object_from_file(&wf_obj_loader, "map.obj", pd);
 		camera = (Camera*)malloc(sizeof(Camera));
 		camera_init(camera);
@@ -118,6 +121,8 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg)
 
 		vec3 pos2 = { 0.0f, 0.0f, 0.0f };
 		scene_object_set_position(mapObj, pos2);
+
+		//scene_object_set_scale(mapObj, (vec3) { 10.0f, 10.0f, 10.0f });
 
 		depth_buffer = (Vector*)malloc(sizeof(Vector));
 		vector_setup(depth_buffer, SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(float));
@@ -326,11 +331,17 @@ void draw_sbuffer(PlaydateAPI *pd) {
 }
 
 
+int total = 0;
+int count = 0;
 
 static int update(void* userdata)
 {
-	reset_depth_buffer();
+	LARGE_INTEGER frequency, start, end;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
+	//reset_depth_buffer();
 	//clear_sbuffer();
+
 	PlaydateAPI* pd = userdata;
 	// pd->system->logToConsole("db val: %f", VECTOR_GET_AS(float, depth_buffer, 0));
 
@@ -339,16 +350,39 @@ static int update(void* userdata)
 
 	control_object(pd, submarineObj);
 
-
+	PDButtons current, just_pressed, just_released; pd->system->getButtonState(&current, &just_pressed, &just_released);
+	if ((just_released & kButtonA) || (just_pressed & kButtonA)) {
+		total = 0;
+		count = 0;
+	}
+	if (current & kButtonA) {
+		clear_sbuffer();
+		scene_object_fill_sbuffer(submarineObj, camera, pd, sbuffer, bayer_matrix);
+		scene_object_fill_sbuffer(mapObj, camera, pd, sbuffer, bayer_matrix);
+		draw_sbuffer(pd);
+	}
+	else {
+		reset_depth_buffer();
+		scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
+		scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);
+	}
+	
 	
 
-	scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
-	scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);
+	//scene_object_draw(submarineObj, camera, pd, depth_buffer, bayer_matrix);
+	//scene_object_draw(mapObj, camera, pd, depth_buffer, bayer_matrix);
 	//pd->graphics->drawScaledBitmap(frame_buffer, 0, 0, PIXEL_SCALE, PIXEL_SCALE);
 	//draw_sbuffer(pd);
 	pd->graphics->drawBitmap(frame_buffer, 0, 0, 0);
 	//pd->graphics->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, kColorBlack);
 	pd->system->drawFPS(0, 0);
+	QueryPerformanceCounter(&end);
+	double elapsed_time_us = (double)(end.QuadPart - start.QuadPart) * 1000000.0 / frequency.QuadPart;
+	total += elapsed_time_us;
+	count += 1;
+	double real_elapsed = (double)total / count;
+	pd->system->logToConsole("This frame used: %f microseconds\n", elapsed_time_us);
+	pd->system->logToConsole("AVG CPU time used: %f microseconds\n", real_elapsed);
 
 	return 1;
 }
