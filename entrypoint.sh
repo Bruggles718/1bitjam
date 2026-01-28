@@ -25,7 +25,13 @@ rsync -a \
 mkdir $WORK/build
 cd $WORK/build
 
-cmake -DCMAKE_TOOLCHAIN_FILE=$PLAYDATE_SDK_PATH/C_API/buildsupport/arm.cmake ..
+if [ -z "$1" ]; then
+  echo "BUILDING FOR SIM"
+  cmake ..
+else
+  echo "BUILDING FOR DEVICE"
+  cmake -DCMAKE_TOOLCHAIN_FILE=$PLAYDATE_SDK_PATH/C_API/buildsupport/arm.cmake ..
+fi
 make
 
 # Export pdx
@@ -37,5 +43,8 @@ if [ -z "$PDX" ]; then
 fi
 
 cp -r "$PDX" $OUT
-
 echo "✅ Output copied to host"
+
+if [ -z "$1" ]; then
+  $PLAYDATE_SDK_PATH/bin/PlaydateSimulator $PDX
+fi

@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y \
     rsync \
     tar \
     ca-certificates \
+    libgtk-3-dev \
+    libwebkit2gtk-4.1-dev \
+    libsdl2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root
@@ -22,9 +25,3 @@ WORKDIR /root
 RUN wget https://download.panic.com/playdate_sdk/Linux/PlaydateSDK-latest.tar.gz \
     && tar -xzf PlaydateSDK-latest.tar.gz \
     && rm PlaydateSDK-latest.tar.gz
-
-# Entrypoint
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
