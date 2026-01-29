@@ -393,9 +393,11 @@ static inline void fill_span(PlaydateAPI* pd, int* depth_buffer,
     float span_width = right.x - left.x;
     if (fabsf(span_width) < 0.001f) return;
 
-    float dz = (right.z - left.z) / span_width;
-    float prestep = x_start - left.x;
-    float z = left.z + dz * prestep;
+    // float dz = (right.z - left.z) / span_width;
+    // float prestep = x_start - left.x;
+    // float z = left.z + dz * prestep;
+    int total_dz = right.z - left.z;
+    int prestep = x_start - left.x;
 
     int idx = y * SCREEN_WIDTH + x_start;
     int bayer_y = y & 7;
@@ -411,6 +413,9 @@ static inline void fill_span(PlaydateAPI* pd, int* depth_buffer,
     float current_normal = left.normal.y + dn * prestep;
 
     for (int x = x_start; x <= x_end; x++, idx++, bayer_x = (bayer_x + 1) & 7) {
+        int total_dx = x - left.x;
+        int z = left.z + ((total_dz * total_dx) / span_width);
+
         /* Draw outer 2 pixels on each edge in black */
         float brightness = (current_normal + 1) * 0.5f;
         int lum = brightness * 255;
@@ -436,7 +441,6 @@ static inline void fill_span(PlaydateAPI* pd, int* depth_buffer,
             }
             setPixel(pd, x, y, color);
         }
-        z += dz;
         current_normal += dn;
     }
 }
@@ -449,8 +453,12 @@ static inline void fill_spans_y(PlaydateAPI* pd, int* depth_buffer,
         step_edge_constant(right, y);
 
         float lt = ((float)y - left.y_start) / (left.y_end - left.y_start);
+        // left.x = my_lerp(left.x_start, left.x_end, lt);
+        // left.z = my_lerp(left.z_start, left.z_end, lt);
         left.normal = glm::mix(left.normal_start, left.normal_end, lt);
         float rt = ((float)y - right.y_start) / (right.y_end - right.y_start);
+        // right.x = my_lerp(right.x_start, right.x_end, rt);
+        // right.z = my_lerp(right.z_start, right.z_end, rt);
         right.normal = glm::mix(right.normal_start, right.normal_end, rt);
 
         fill_span(pd, depth_buffer, bayer_matrix, y, left, right);
@@ -595,9 +603,9 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
             ClipVert v2 = { x2, y2, z2, b.nx, b.ny, b.nz };
             ClipVert v3 = { x3, y3, z3, c.nx, c.ny, c.nz };
 
-            normalize_clipvert(&v1);
-            normalize_clipvert(&v2);
-            normalize_clipvert(&v3);
+            // normalize_clipvert(&v1);
+            // normalize_clipvert(&v2);
+            // normalize_clipvert(&v3);
 
             /* Sort vertices by Y coordinate */
             sort_clipvert_by_y(&v1, &v2, &v3);
