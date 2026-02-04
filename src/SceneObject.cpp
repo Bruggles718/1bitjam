@@ -490,15 +490,17 @@ static inline void fill_span(PlaydateAPI* pd, int* depth_buffer,
 static inline void fill_spans_y(PlaydateAPI* pd, int* depth_buffer,
     std::vector<std::vector<int>>& bayer_matrix,
     int y_start, int y_end, EdgeData& left, EdgeData& right) {
+    float lt_mul = 1.0f / (left.y_end - left.y_start);
+    float rt_mul = 1.0f / (right.y_end - right.y_start);
     for (int y = y_start; y < y_end; y += 1) {
         step_edge_constant(left, y);
         step_edge_constant(right, y);
 
-        float lt = ((float)y - left.y_start) / (left.y_end - left.y_start);
+        float lt = ((float)y - left.y_start) * lt_mul;
         // left.x = my_lerp(left.x_start, left.x_end, lt);
         // left.z = my_lerp(left.z_start, left.z_end, lt);
         left.normal = glm::mix(left.normal_start, left.normal_end, lt);
-        float rt = ((float)y - right.y_start) / (right.y_end - right.y_start);
+        float rt = ((float)y - right.y_start) * rt_mul;
         // right.x = my_lerp(right.x_start, right.x_end, rt);
         // right.z = my_lerp(right.z_start, right.z_end, rt);
         right.normal = glm::mix(right.normal_start, right.normal_end, rt);
