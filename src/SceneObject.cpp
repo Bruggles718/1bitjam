@@ -248,6 +248,48 @@ static inline void step_edge(EdgeData& edge, int y) {
     }
 }
 
+typedef struct {
+    uint32_t low;
+    uint32_t high;
+} uint64_emulated;
+
+static inline uint64_emulated multiply_32x32_to_64(uint32_t a, uint32_t b) {
+    uint64_emulated result;
+    
+    uint32_t a_low = a & 0xFFFF;
+    uint32_t a_high = a >> 16;
+    uint32_t b_low = b & 0xFFFF;
+    uint32_t b_high = b >> 16;
+    
+    uint32_t low_low = a_low * b_low;
+    uint32_t low_high = a_low * b_high;
+    uint32_t high_low = a_high * b_low;
+    uint32_t high_high = a_high * b_high;
+    
+    uint32_t middle = low_high + high_low;
+    uint32_t carry = (middle < low_high) ? 1 : 0;
+    
+    result.low = low_low + (middle << 16);
+    result.high = high_high + (middle >> 16) + carry + ((result.low < low_low) ? 1 : 0);
+    
+    return result;
+}
+
+static inline uint32_t divide_64_by_32_to_32(uint64_emulated dividend, uint32_t divisor) {
+    uint32_t remainder = dividend.high % divisor;
+    uint32_t quotient = 0;
+    
+    for (int i = 31; i >= 0; i--) {
+        remainder = (remainder << 1) | ((dividend.low >> i) & 1);
+        if (remainder >= divisor) {
+            remainder -= divisor;
+            quotient |= (1U << i);
+        }
+    }
+    
+    return quotient;
+}
+
 static inline void step_edge_constant(EdgeData& edge, int target_y) {
     int dy_steps = target_y - edge.y_start;
     if (dy_steps <= 0) return;
@@ -258,8 +300,8 @@ static inline void step_edge_constant(EdgeData& edge, int target_y) {
     int total_dx = edge.dx;
     int total_dz = edge.dz;
 
-    int x_steps = (total_dx * dy_steps) / total_dy;
-    int z_steps = (total_dz * dy_steps) / total_dy;
+    int x_steps = divide_64_by_32_to_32(multiply_32x32_to_64(total_dx, dy_steps), total_dy);
+    int z_steps = divide_64_by_32_to_32(multiply_32x32_to_64(total_dz, dy_steps), total_dy);
 
     edge.x = edge.x_start + x_steps * edge.sx;
     edge.z = edge.z_start + z_steps * edge.sz;
