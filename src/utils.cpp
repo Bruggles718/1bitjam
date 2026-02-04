@@ -1,12 +1,8 @@
 #include "utils.hpp"
 #include "ScreenGlobals.hpp"
 
-float my_lerp(float a, float b, float t) {
-    return a + (b - a) * t;
-}
-
 float calc_percentage(float start, float end, float x) {
-    if (fabsf(end - start) < 1e-6f) return 0;
+    if (my_abs(end - start) < 1e-6f) return 0;
     return (x - start) / (end - start);
 }
 

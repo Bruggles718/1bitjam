@@ -433,7 +433,7 @@ static inline void fill_span(PlaydateAPI* pd, int* depth_buffer,
     if (x_start > x_end) return;
 
     float span_width = right.x - left.x;
-    if (fabsf(span_width) < 0.001f) return;
+    if (my_abs(span_width) < 0.001f) return;
 
     // float dz = (right.z - left.z) / span_width;
     // float prestep = x_start - left.x;
@@ -656,7 +656,7 @@ void VertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::m
             //sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
 
             /* Check for degenerate triangle */
-            if (fabsf(v3.y - v1.y) < 0.001f) continue;
+            if (my_abs(v3.y - v1.y) < 0.001f) continue;
 
             /* Setup edges */
             EdgeData edge_long;   /* v1 to v3 (long edge) */

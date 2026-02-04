@@ -16,7 +16,13 @@
 
 void setPixel(PlaydateAPI* pd, int x, int y, int color);
 
-float my_lerp(float a, float b, float t);
+inline float my_lerp(float a, float b, float t) {
+    return a + (b - a) * t;
+}
+
+inline float my_abs(float v) {
+    return v * ((v>0) - (v<0));
+}
 
 float calc_percentage(float start, float end, float x);
 
