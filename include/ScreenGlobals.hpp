@@ -2,9 +2,9 @@
 
 #include "pd_api.h"
 
-#define PIXEL_SCALE 1
+constexpr int PIXEL_SCALE = 2;
 
-#define NEAR_PLANE 0.1f
+constexpr float NEAR_PLANE = 0.1f;
 
-#define SCREEN_WIDTH (LCD_COLUMNS / PIXEL_SCALE)
-#define SCREEN_HEIGHT (LCD_ROWS / PIXEL_SCALE)
+constexpr int SCREEN_WIDTH = (LCD_COLUMNS / PIXEL_SCALE);
+constexpr int SCREEN_HEIGHT = (LCD_ROWS / PIXEL_SCALE);
