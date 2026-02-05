@@ -38,6 +38,14 @@ class WFObjLoader : public ModelFileLoader {
         glm::vec3 tokenized_line_to_vec3(std::vector<std::string> &i_tokenized_line);
         void add_face(std::vector<std::string> &i_tokenized_line);
         std::vector<float> face_to_simple_vertex_buffer(WFFace &i_face);
+        std::vector<int> face_to_index_buffer(WFFace &i_face);
+        std::vector<int> face_to_normal_index_buffer(WFFace &i_face);
+        std::vector<float> get_ordered_vertex_data_buffer();
+        std::vector<int> get_index_buffer();
+        std::vector<float> get_ordered_normal_buffer();
+        std::vector<int> get_normal_index_buffer();
+        void compute_and_store_normals();
+        void compute_and_store_normals_for_face(WFFace &i_face);
 
         std::vector<glm::vec4> m_vertices;
         std::vector<glm::vec3> m_vertex_normals;

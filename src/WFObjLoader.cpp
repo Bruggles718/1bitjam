@@ -9,13 +9,18 @@ SceneObject WFObjLoader::create_scene_object_from_file(
     std::string i_filepath, PlaydateAPI* pd
 ) {
     parse_obj_file(i_filepath, pd);
-    const int attribute_count = 3;
-    int stride = 9;
-    std::array<int, attribute_count> offsets{0, 3, 6};
+    // const int attribute_count = 3;
+    // int stride = 9;
+    // std::array<int, attribute_count> offsets{0, 3, 6};
+    // std::shared_ptr<VertexData> vertex_data 
+    //     = std::make_shared<SimpleVertexData<attribute_count>>(
+    //         get_simple_vertex_buffer(), stride, offsets
+    // );
+    int stride = 6;
     std::shared_ptr<VertexData> vertex_data 
-        = std::make_shared<SimpleVertexData<attribute_count>>(
-            get_simple_vertex_buffer(), stride, offsets
-    );
+        = std::make_shared<IndexedVertexData>(
+            get_ordered_vertex_data_buffer(), get_index_buffer(), 
+            get_ordered_normal_buffer(), get_normal_index_buffer(), stride);
     //std::shared_ptr<SceneObject> scene_object = std::make_shared<SceneObject>(vertex_data);
     SceneObject scene_object{vertex_data};
     return scene_object;
@@ -172,6 +177,110 @@ std::vector<float> WFObjLoader::get_simple_vertex_buffer() {
     return result;
 }
 
+std::vector<float> WFObjLoader::get_ordered_vertex_data_buffer() {
+    std::vector<float> result;
+    // compute_and_store_normals();
+    for (int i = 0; i < m_vertices.size(); i += 1) {
+        glm::vec4 vert = m_vertices[i];
+        glm::vec3 vert_norm = m_vertex_normals[i];
+        result.push_back(vert.x);
+        result.push_back(vert.y);
+        result.push_back(vert.z);
+        // result.push_back(vert_norm.x);
+        // result.push_back(vert_norm.y);
+        // result.push_back(vert_norm.z);
+    }
+    return result;
+}
+
+std::vector<int> WFObjLoader::get_index_buffer() {
+    std::vector<int> result;
+    for (auto face : m_faces) {
+        auto face_as_idx_buffer = face_to_index_buffer(face);
+        result = concat(result, face_as_idx_buffer);
+    }
+    return result;
+}
+
+std::vector<float> WFObjLoader::get_ordered_normal_buffer() {
+    std::vector<float> result;
+    // compute_and_store_normals();
+    for (int i = 0; i < m_vertex_normals.size(); i += 1) {
+        glm::vec3 vert_norm = m_vertex_normals[i];
+        result.push_back(vert_norm.x);
+        result.push_back(vert_norm.y);
+        result.push_back(vert_norm.z);
+    }
+    return result;
+}
+
+std::vector<int> WFObjLoader::get_normal_index_buffer() {
+    std::vector<int> result;
+    for (auto face : m_faces) {
+        auto face_as_idx_buffer = face_to_normal_index_buffer(face);
+        result = concat(result, face_as_idx_buffer);
+    }
+    return result;
+}
+
+std::vector<int> WFObjLoader::face_to_index_buffer(WFFace &i_face) {
+    std::vector<int> result;
+
+    int vert_idx1 = i_face.get_vertex_idx(0);
+    int vert_idx2 = i_face.get_vertex_idx(1);
+    int vert_idx3 = i_face.get_vertex_idx(2);
+    result.push_back(vert_idx1);
+    result.push_back(vert_idx2);
+    result.push_back(vert_idx3);
+    return result;
+}
+
+std::vector<int> WFObjLoader::face_to_normal_index_buffer(WFFace &i_face) {
+    std::vector<int> result;
+    int vert_idx1 = i_face.get_vertex_normal(0);
+    int vert_idx2 = i_face.get_vertex_normal(1);
+    int vert_idx3 = i_face.get_vertex_normal(2);
+    result.push_back(vert_idx1);
+    result.push_back(vert_idx2);
+    result.push_back(vert_idx3);
+    return result;
+}
+
+void WFObjLoader::compute_and_store_normals() {
+    m_vertex_normals.resize(m_vertices.size());
+    for (auto face : m_faces) {
+        compute_and_store_normals_for_face(face);
+    }
+}
+
+void WFObjLoader::compute_and_store_normals_for_face(WFFace &i_face) {
+
+    int vert_idx1 = i_face.get_vertex_idx(0);
+    int vert_idx2 = i_face.get_vertex_idx(1);
+    int vert_idx3 = i_face.get_vertex_idx(2);
+    glm::vec4 vert1 = m_vertices.at(vert_idx1);
+    glm::vec4 vert2 = m_vertices.at(vert_idx2);
+    glm::vec4 vert3 = m_vertices.at(vert_idx3);
+
+    float e1x = vert2.x - vert1.x;
+    float e1y = vert2.y - vert1.y;
+    float e1z = vert2.z - vert1.z;
+    float e2x = vert3.x - vert1.x;
+    float e2y = vert3.y - vert1.y;
+    float e2z = vert3.z - vert1.z;
+
+    float nx = e1y * e2z - e1z * e2y;
+    float ny = e1z * e2x - e1x * e2z;
+    float nz = e1x * e2y - e1y * e2x;
+
+    for (int i = 0; i < i_face.vertex_count(); i++) {
+        glm::vec3 vert_norm{nx, ny, nz};
+        m_vertex_normals[vert_idx1] = vert_norm;
+        m_vertex_normals[vert_idx2] = vert_norm;
+        m_vertex_normals[vert_idx3] = vert_norm;
+    }
+}
+
 std::vector<float> WFObjLoader::face_to_simple_vertex_buffer(WFFace &i_face) {
     std::vector<float> result;
 
@@ -207,7 +316,6 @@ std::vector<float> WFObjLoader::face_to_simple_vertex_buffer(WFFace &i_face) {
             result.push_back(vert_norm.y);
             result.push_back(vert_norm.z);
         } else {
-            // TODO: calculate vertex normal from surrounding vertices?
             result.push_back(nx);
             result.push_back(ny);
             result.push_back(nz);

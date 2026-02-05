@@ -710,6 +710,229 @@ void VertexData::print_vertex_buffer() {
     }
 }
 
+IndexedVertexData::IndexedVertexData(
+    std::vector<float> i_vertex_buffer, 
+    std::vector<int> i_index_buffer, 
+    std::vector<float> i_normal_buffer,
+    std::vector<int> i_normal_index_buffer,
+    int i_stride)  : VertexData(i_vertex_buffer) {
+    m_index_buffer = i_index_buffer;
+    m_normal_buffer = i_normal_buffer;
+    m_normal_index_buffer = i_normal_index_buffer;
+    m_stride = i_stride;
+}
+
+IndexedVertexData::~IndexedVertexData() {
+
+}
+
+void IndexedVertexData::send_to_gpu() {
+
+}
+
+void IndexedVertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view, glm::mat4& projection, 
+    int* depth_buffer, std::vector<std::vector<int>>& bayer_matrix) {
+    glm::mat4 mv = view * model;
+    glm::mat4 mvp = projection * mv;
+
+    glm::mat3 normal_mat = glm::mat3(model);
+    normal_mat = glm::inverse(normal_mat);
+    normal_mat = glm::transpose(normal_mat);
+
+    float* buf = m_vertex_buffer.data();
+    float* nbuf = m_normal_buffer.data();
+    int* indices = m_index_buffer.data();
+    int* norm_indices = m_normal_index_buffer.data();
+    size_t indices_size = m_index_buffer.size();
+    int stride = 3;
+
+    const float hw = SCREEN_WIDTH * 0.5f;
+    const float hh = SCREEN_HEIGHT * 0.5f;
+
+    for (size_t i = 0; i < indices_size; i += 3) {
+        int vbuf_offset1 = indices[i] * stride;
+        int vbuf_offset2 = indices[i + 1] * stride;
+        int vbuf_offset3 = indices[i + 2] * stride;
+        int nbuf_offset1 = norm_indices[i] * stride;
+        int nbuf_offset2 = norm_indices[i + 1] * stride;
+        int nbuf_offset3 = norm_indices[i + 2] * stride;
+        glm::vec4 pos1 = { buf[vbuf_offset1], buf[vbuf_offset1 + 1], buf[vbuf_offset1 + 2], 1.0f };
+        glm::vec3 n1 = { nbuf[nbuf_offset1], nbuf[nbuf_offset1 + 1], nbuf[nbuf_offset1 + 2] };
+
+        glm::vec4 pos2 = { buf[vbuf_offset2], buf[vbuf_offset2 + 1], buf[vbuf_offset2 + 2], 1.0f };
+        glm::vec3 n2 = { nbuf[nbuf_offset2], nbuf[nbuf_offset2 + 1], nbuf[nbuf_offset2 + 2] };
+
+        glm::vec4 pos3 = { buf[vbuf_offset3], buf[vbuf_offset3 + 1], buf[vbuf_offset3 + 2], 1.0f };
+        glm::vec3 n3 = { nbuf[nbuf_offset3], nbuf[nbuf_offset3 + 1], nbuf[nbuf_offset3 + 2] };
+
+        glm::vec4 view_pos1, view_pos2, view_pos3;
+        view_pos1 = mv * pos1;
+        view_pos2 = mv * pos2;
+        view_pos3 = mv * pos3;
+
+        /* Z-clip */
+        if (view_pos1.z >= 0 && view_pos2.z >= 0 && view_pos3.z >= 0) continue;
+
+        /* Backface culling */
+        float e1x = view_pos2.x - view_pos1.x;
+        float e1y = view_pos2.y - view_pos1.y;
+        float e1z = view_pos2.z - view_pos1.z;
+        float e2x = view_pos3.x - view_pos1.x;
+        float e2y = view_pos3.y - view_pos1.y;
+        float e2z = view_pos3.z - view_pos1.z;
+
+        float view_dir_x = -view_pos1.x;  // Camera at origin
+        float view_dir_y = -view_pos1.y;
+        float view_dir_z = -view_pos1.z;
+
+        float nx = e1y * e2z - e1z * e2y;
+        float ny = e1z * e2x - e1x * e2z;
+        float nz = e1x * e2y - e1y * e2x;
+        float facing = nx * view_dir_x + ny * view_dir_y + nz * view_dir_z;
+
+        if (facing < 0) continue;
+
+        /* Lighting */
+
+        n1 = normal_mat * n1;
+        n2 = normal_mat * n2;
+        n3 = normal_mat * n3;
+
+        /* Fixed world-space light direction (pointing up) */
+        const float light_y = 1.0f;
+
+        /* Calculate brightness from world-space normal */
+        //float len = sqrtf(nx * nx + ny * ny + nz * nz);
+        //if (len < 0.001f) continue;
+
+        //float brightness = (ny + len) * 0.5f / len;
+
+        ClipVert vin[3] = {
+            { view_pos1.x, view_pos1.y, view_pos1.z, n1.x, n1.y, n1.z },
+            { view_pos2.x, view_pos2.y, view_pos2.z, n2.x, n2.y, n2.z },
+            { view_pos3.x, view_pos3.y, view_pos3.z, n3.x, n3.y, n3.z }
+        };
+
+        ClipVert vout[6];
+        int tri_count = clip_triangle_near(vin, vout, -NEAR_PLANE); // your near plane
+
+        if (tri_count == 0)
+            continue;
+
+        for (int t = 0; t < tri_count; t++) {
+
+            ClipVert a = vout[t * 3 + 0];
+            ClipVert b = vout[t * 3 + 1];
+            ClipVert c = vout[t * 3 + 2];
+
+            /* Use a,b,c as your new triangle */
+            /* Continue pipeline from here */
+
+            view_pos1 = { a.x, a.y, a.z, 1.0f };
+            view_pos2 = { b.x, b.y, b.z, 1.0f };
+            view_pos3 = { c.x, c.y, c.z, 1.0f };
+
+            /* Project to screen space */
+            glm::vec4 clip1, clip2, clip3;
+            clip1 = projection * view_pos1;
+            clip2 = projection * view_pos2;
+            clip3 = projection * view_pos3;
+
+            float inv_w1 = 1.0f / clip1.w;
+            float inv_w2 = 1.0f / clip2.w;
+            float inv_w3 = 1.0f / clip3.w;
+
+            float x1 = (clip1.x * inv_w1 + 1.0f) * hw;
+            float y1 = (1.0f - clip1.y * inv_w1) * hh;
+            float x2 = (clip2.x * inv_w2 + 1.0f) * hw;
+            float y2 = (1.0f - clip2.y * inv_w2) * hh;
+            float x3 = (clip3.x * inv_w3 + 1.0f) * hw;
+            float y3 = (1.0f - clip3.y * inv_w3) * hh;
+
+            // After projection and screen transform
+            //float z1 = 1.0f / -view_pos1.z;  // Use reciprocal of view Z
+            //float z2 = 1.0f / -view_pos2.z;
+            //float z3 = 1.0f / -view_pos3.z;
+            float z1 = clip1.z * inv_w1;
+            float z2 = clip2.z * inv_w2;
+            float z3 = clip3.z * inv_w3;
+
+            z1 = z1 * 0.5f + 0.5f;
+            z2 = z2 * 0.5f + 0.5f;
+            z3 = z3 * 0.5f + 0.5f;
+
+
+            float min_x = min3(x1, x2, x3);
+            float max_x = max3(x1, x2, x3);
+            float min_y = min3(y1, y2, y3);
+            float max_y = max3(y1, y2, y3);
+
+            if (max_x < 0 || min_x >= SCREEN_WIDTH ||
+                max_y < 0 || min_y >= SCREEN_HEIGHT) {
+                continue;  /* Triangle completely off-screen */
+            }
+
+            ClipVert v1 = { x1, y1, z1, a.nx, a.ny, a.nz };
+            ClipVert v2 = { x2, y2, z2, b.nx, b.ny, b.nz };
+            ClipVert v3 = { x3, y3, z3, c.nx, c.ny, c.nz };
+
+            // normalize_clipvert(&v1);
+            // normalize_clipvert(&v2);
+            // normalize_clipvert(&v3);
+
+            /* Sort vertices by Y coordinate */
+            sort_clipvert_by_y(&v1, &v2, &v3);
+            //sort_vertices_by_y(&x1, &y1, &z1, &x2, &y2, &z2, &x3, &y3, &z3);
+
+            /* Check for degenerate triangle */
+            if (my_abs(v3.y - v1.y) < 0.001f) continue;
+
+            /* Setup edges */
+            EdgeData edge_long;   /* v1 to v3 (long edge) */
+            EdgeData edge_short1; /* v1 to v2 (short edge 1) */
+            EdgeData edge_short2; /* v2 to v3 (short edge 2) */
+
+            /* Don't clamp y_min/y_max initially - use original values */
+            int y_top = max_int(0, (int)ceilf(v1.y));
+            int y_bottom = min_int(SCREEN_HEIGHT - 1, (int)floorf(v3.y));
+
+            /* Setup edges with original values */
+            setup_edge_clipvert(&edge_long, &v1, &v3);
+            setup_edge_clipvert(&edge_short1, &v1, &v2);
+            setup_edge_clipvert(&edge_short2, &v2, &v3);
+
+            /* Determine which side the middle vertex is on */
+            float mid_x_on_long = v1.x + (v3.x - v1.x) * (v2.y - v1.y) / (v3.y - v1.y);
+            int middle_is_right = (v2.x > mid_x_on_long);
+
+            /* Rasterize top half (v1 to v2) */
+            int y_mid = min_int(SCREEN_HEIGHT - 1, max_int(0, (int)ceilf(v2.y)));
+
+            //if (y_top > edge_long.y_start) {
+            //    clamp_edge(edge_long, y_top);
+            //}
+            //if (y_top > edge_short1.y_start) {
+            //    clamp_edge(edge_short1, y_top);
+            //}
+
+            EdgeData* left_edge = middle_is_right ? &edge_long : &edge_short1;
+            EdgeData* right_edge = middle_is_right ? &edge_short1 : &edge_long;
+
+            fill_spans_y(pd, depth_buffer, bayer_matrix, y_top, y_mid, *left_edge, *right_edge);
+
+            //if (y_mid > edge_short2.y_start) {
+            //    clamp_edge(edge_short2, y_mid);
+            //}
+
+            /* Rasterize bottom half (v2 to v3) */
+            left_edge = middle_is_right ? &edge_long : &edge_short2;
+            right_edge = middle_is_right ? &edge_short2 : &edge_long;
+
+            fill_spans_y(pd, depth_buffer, bayer_matrix, y_mid, y_bottom + 1, *left_edge, *right_edge);
+        }
+    }
+}
+
 SceneObject::SceneObject(std::shared_ptr<VertexData> i_vertex_data) {
     m_vertex_data = i_vertex_data;
     

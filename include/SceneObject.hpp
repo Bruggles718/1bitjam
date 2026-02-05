@@ -16,7 +16,7 @@ class VertexData {
         ~VertexData();
         void add_to_vertex_buffer(float i_f);
         virtual void send_to_gpu() = 0;
-        void draw(
+        virtual void draw(
             PlaydateAPI* pd, 
             glm::mat4& model, 
             glm::mat4& view, 
@@ -48,6 +48,32 @@ class SimpleVertexData : public VertexData {
 
         int m_stride;
         std::array<int, T> m_offsets;
+};
+
+class IndexedVertexData : public VertexData {
+    public:
+        IndexedVertexData(
+            std::vector<float> i_vertex_buffer, 
+            std::vector<int> i_index_buffer,
+            std::vector<float> i_normal_buffer,
+            std::vector<int> i_normal_index_buffer,
+            int i_stride);
+        ~IndexedVertexData();
+        void send_to_gpu();
+
+        void draw(
+            PlaydateAPI* pd, 
+            glm::mat4& model, 
+            glm::mat4& view, 
+            glm::mat4& projection, 
+            int* depth_buffer,
+            std::vector<std::vector<int>>& bayer_matrix
+        ) override;
+    private:
+        int m_stride;
+        std::vector<int> m_index_buffer;
+        std::vector<float> m_normal_buffer;
+        std::vector<int> m_normal_index_buffer;
 };
 
 struct Transform {
