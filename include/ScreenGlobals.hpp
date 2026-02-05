@@ -2,7 +2,7 @@
 
 #include "pd_api.h"
 
-constexpr int PIXEL_SCALE = 2;
+constexpr int PIXEL_SCALE = 1;
 
 constexpr float NEAR_PLANE = 0.1f;
 

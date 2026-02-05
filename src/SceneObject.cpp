@@ -740,7 +740,9 @@ void IndexedVertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view,
     normal_mat = glm::transpose(normal_mat);
 
     float* buf = m_vertex_buffer.data();
+    size_t buf_size = m_vertex_buffer.size();
     float* nbuf = m_normal_buffer.data();
+    size_t nbuf_size = m_normal_buffer.size();
     int* indices = m_index_buffer.data();
     int* norm_indices = m_normal_index_buffer.data();
     size_t indices_size = m_index_buffer.size();
@@ -749,26 +751,33 @@ void IndexedVertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view,
     const float hw = SCREEN_WIDTH * 0.5f;
     const float hh = SCREEN_HEIGHT * 0.5f;
 
+    size_t vec_size = buf_size / 3;
+    std::vector<glm::vec4> view_positions;
+    view_positions.reserve(vec_size);
+    std::vector<glm::vec3> world_normals;
+    world_normals.reserve(vec_size);
+
+    for (size_t i = 0; i < buf_size; i += stride) {
+        glm::vec4 pos1 = { buf[i], buf[i + 1], buf[i + 2], 1.0f };
+        pos1 = mv * pos1;
+        view_positions.push_back(pos1);
+    }
+
+    for (size_t i = 0; i < nbuf_size; i += stride) {
+        glm::vec3 n1 = { nbuf[i], nbuf[i + 1], nbuf[i + 2] };
+        n1 = normal_mat * n1;
+        world_normals.push_back(n1);
+    }
+
     for (size_t i = 0; i < indices_size; i += 3) {
-        int vbuf_offset1 = indices[i] * stride;
-        int vbuf_offset2 = indices[i + 1] * stride;
-        int vbuf_offset3 = indices[i + 2] * stride;
-        int nbuf_offset1 = norm_indices[i] * stride;
-        int nbuf_offset2 = norm_indices[i + 1] * stride;
-        int nbuf_offset3 = norm_indices[i + 2] * stride;
-        glm::vec4 pos1 = { buf[vbuf_offset1], buf[vbuf_offset1 + 1], buf[vbuf_offset1 + 2], 1.0f };
-        glm::vec3 n1 = { nbuf[nbuf_offset1], nbuf[nbuf_offset1 + 1], nbuf[nbuf_offset1 + 2] };
-
-        glm::vec4 pos2 = { buf[vbuf_offset2], buf[vbuf_offset2 + 1], buf[vbuf_offset2 + 2], 1.0f };
-        glm::vec3 n2 = { nbuf[nbuf_offset2], nbuf[nbuf_offset2 + 1], nbuf[nbuf_offset2 + 2] };
-
-        glm::vec4 pos3 = { buf[vbuf_offset3], buf[vbuf_offset3 + 1], buf[vbuf_offset3 + 2], 1.0f };
-        glm::vec3 n3 = { nbuf[nbuf_offset3], nbuf[nbuf_offset3 + 1], nbuf[nbuf_offset3 + 2] };
+        int vbuf_offset1 = indices[i];
+        int vbuf_offset2 = indices[i + 1];
+        int vbuf_offset3 = indices[i + 2];
 
         glm::vec4 view_pos1, view_pos2, view_pos3;
-        view_pos1 = mv * pos1;
-        view_pos2 = mv * pos2;
-        view_pos3 = mv * pos3;
+        view_pos1 = view_positions[vbuf_offset1];
+        view_pos2 = view_positions[vbuf_offset2];
+        view_pos3 = view_positions[vbuf_offset3];
 
         /* Z-clip */
         if (view_pos1.z >= 0 && view_pos2.z >= 0 && view_pos3.z >= 0) continue;
@@ -794,18 +803,13 @@ void IndexedVertexData::draw(PlaydateAPI* pd, glm::mat4& model, glm::mat4& view,
 
         /* Lighting */
 
-        n1 = normal_mat * n1;
-        n2 = normal_mat * n2;
-        n3 = normal_mat * n3;
+        int nbuf_offset1 = norm_indices[i];
+        int nbuf_offset2 = norm_indices[i + 1];
+        int nbuf_offset3 = norm_indices[i + 2];
 
-        /* Fixed world-space light direction (pointing up) */
-        const float light_y = 1.0f;
-
-        /* Calculate brightness from world-space normal */
-        //float len = sqrtf(nx * nx + ny * ny + nz * nz);
-        //if (len < 0.001f) continue;
-
-        //float brightness = (ny + len) * 0.5f / len;
+        glm::vec3 n1 = world_normals[nbuf_offset1];
+        glm::vec3 n2 = world_normals[nbuf_offset2];
+        glm::vec3 n3 = world_normals[nbuf_offset3];
 
         ClipVert vin[3] = {
             { view_pos1.x, view_pos1.y, view_pos1.z, n1.x, n1.y, n1.z },
