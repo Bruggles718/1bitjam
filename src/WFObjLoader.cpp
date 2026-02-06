@@ -182,7 +182,6 @@ std::vector<float> WFObjLoader::get_ordered_vertex_data_buffer() {
     // compute_and_store_normals();
     for (int i = 0; i < m_vertices.size(); i += 1) {
         glm::vec4 vert = m_vertices[i];
-        glm::vec3 vert_norm = m_vertex_normals[i];
         result.push_back(vert.x);
         result.push_back(vert.y);
         result.push_back(vert.z);
